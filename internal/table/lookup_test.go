@@ -40,3 +40,26 @@ func TestScan_Should_call_Find_func_and_return_result_to_result_channel(t *testi
 		// nothing here
 	}
 }
+
+func TestScan_Should_call_Find_func_which_return_some_error(t *testing.T) {
+	var (
+		targetNode = randomNode()
+		resCh      = make(chan []*node.Node, Alpha)
+		errCh      = make(chan error, 1)
+	)
+
+	fakeFinder := mocks.Finder{}
+	fakeFinder.On("Find", targetNode.ID(), targetNode.IP()).Return(nil, ErrEmptyBootstrapNodes)
+
+	l := newLookup(lookupConfig{}, &fakeFinder, nil)
+
+	l.scan(targetNode, resCh, errCh)
+
+	select {
+	case <-resCh:
+	// nothing here
+	case err := <-errCh:
+		assert.Error(t, err)
+		assert.Equal(t, ErrEmptyBootstrapNodes, err)
+	}
+}
