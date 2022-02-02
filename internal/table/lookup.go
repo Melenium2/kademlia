@@ -36,11 +36,18 @@ func (on *orderedNodes) Add(newNode *node.Node) {
 		return node.DistanceCmp(on.self.ID(), on.nodes[i].ID(), newNode.ID()) > 0
 	})
 
+	// we add new item to the end of list if limit not reached.
+	if len(on.nodes) < on.nodesLimit {
+		on.nodes = append(on.nodes, newNode)
+	}
+
+	// if index less than length of nodes we insert it to the
+	// position 'index', otherwise, 'index' equals to last element
+	// of list and this is means we already set new node to
+	// right position.
 	if index < len(on.nodes) {
 		copy(on.nodes[index+1:], on.nodes[index:])
 		on.nodes[index] = newNode
-	} else if index == len(on.nodes) && len(on.nodes) < on.nodesLimit {
-		on.nodes = append(on.nodes, newNode)
 	}
 }
 
