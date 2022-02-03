@@ -149,7 +149,7 @@ func (l *lookup) consume(resCh chan []*node.Node, errCh chan error) error {
 // contains the closest nodes to our self Node.
 func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 	for l.started > 0 {
-		// we loop over all nodes and query it for closest nodes. Also, we can not
+		// we loop over all nodes and query it for closest nodes. We can not
 		// run more parallel scans than Alpha (3).
 		for i := 0; i < len(l.resultNodes.Nodes()) && l.started < Alpha; i++ {
 			curr := l.resultNodes.nodes[i]
