@@ -1,6 +1,7 @@
 package table
 
 import (
+	"log"
 	"net"
 	"sort"
 
@@ -80,6 +81,8 @@ type lookup struct {
 	started     int
 }
 
+// TODO add doc for each field in lookup struct.
+
 // newLookup create new lookup mechanism.
 func newLookup(cfg lookupConfig, finder finder, self *node.Node) *lookup {
 	return &lookup{
@@ -116,30 +119,51 @@ func (l *lookup) Discover() ([]*node.Node, error) {
 	close(resCh)
 	close(errCh)
 
+	l.drainCh(resCh, errCh)
+
 	return l.resultNodes.Nodes(), nil
+}
+
+// drainCh reads all remaining items from channels. Channels should be closed,
+// otherwise, this function will block current thread.
+func (l *lookup) drainCh(resCh chan []*node.Node, errCh chan error) {
+	for res := range resCh {
+		l.appendNodes(res)
+	}
+
+	for err := range errCh {
+		log.Printf("TODO#(change to real logger) some error occures %s", err)
+		// todo log here
+	}
+}
+
+// appendNodes to the resulting structure if no nodes are viewed.
+func (l *lookup) appendNodes(nodes []*node.Node) {
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+
+		if _, ok := l.seenNodes[n.ID()]; ok {
+			continue
+		}
+
+		l.resultNodes.Add(n)
+		l.seenNodes[n.ID()] = struct{}{}
+	}
 }
 
 // consume wait for first reply from one of provided channels.
 func (l *lookup) consume(resCh chan []*node.Node, errCh chan error) error {
 	select {
 	case nodes := <-resCh:
-		for _, n := range nodes {
-			if n == nil {
-				continue
-			}
-
-			if _, ok := l.seenNodes[n.ID()]; ok {
-				continue
-			}
-
-			l.resultNodes.Add(n)
-			l.seenNodes[n.ID()] = struct{}{}
-		}
-
+		l.appendNodes(nodes)
 		l.started--
 
 		return nil
 	case err := <-errCh:
+		l.started--
+
 		return err
 	}
 }
@@ -148,7 +172,7 @@ func (l *lookup) consume(resCh chan []*node.Node, errCh chan error) error {
 // if lookup.started parameter equals to 0, this is means that we ended discovery nad lookup.resultNodes
 // contains the closest nodes to our self Node.
 func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
-	for l.started > 0 {
+	for l.started >= 0 {
 		// we loop over all nodes and query it for closest nodes. We can not
 		// run more parallel scans than Alpha (3).
 		for i := 0; i < len(l.resultNodes.Nodes()) && l.started < Alpha; i++ {
@@ -161,6 +185,17 @@ func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 			l.askedNodes[curr.ID()] = struct{}{}
 			l.started++
 			go l.scan(curr, resCh, errCh)
+		}
+
+		// if we do not start any find cycle, this is means that we already find
+		// all nodes and should cancel 'discover' cycle. One more reason why we
+		// stop here if started flag equals zero, this is deadlock, which occurs
+		// if we call 'consume' function here, because no result incoming.
+		if l.started == 0 {
+			// decrement value to close cycle.
+			l.started--
+
+			continue
 		}
 
 		if err := l.consume(resCh, errCh); err != nil {
