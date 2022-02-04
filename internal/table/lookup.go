@@ -72,16 +72,23 @@ type lookupConfig struct {
 // close to our self Node. It approaches the target by querying nodes that
 // are closer to it on each iteration.
 type lookup struct {
+	// finder dials net calls to other nodes by their IP and ID.
 	finder finder
 
-	askedNodes  map[kademlia.ID]struct{}
-	seenNodes   map[kademlia.ID]struct{}
+	// nodes which already asked for new closer nodes.
+	askedNodes map[kademlia.ID]struct{}
+	// nodes which was already processed and stored in resultNodes.
+	seenNodes map[kademlia.ID]struct{}
+	// result of lookup request. This structure will sort nodes
+	// by their distance between self node and other nodes.
 	resultNodes orderedNodes
-	bootstrap   []*node.Node
-	started     int
+	// nodes for initializing lookup process. At least one node needed for
+	// starting process.
+	bootstrap []*node.Node
+	// count of concurrent searches. If started equals to zero this is
+	// means that we already looked at each node in network.
+	started int
 }
-
-// TODO add doc for each field in lookup struct.
 
 // newLookup create new lookup mechanism.
 func newLookup(cfg lookupConfig, finder finder, self *node.Node) *lookup {
