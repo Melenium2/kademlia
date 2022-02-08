@@ -9,10 +9,10 @@ import (
 	"github.com/Melenium2/kademlia"
 	"github.com/Melenium2/kademlia/internal/table/mocks"
 	"github.com/Melenium2/kademlia/internal/table/node"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func randomNode() *node.Node {
