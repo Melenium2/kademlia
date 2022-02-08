@@ -1,12 +1,12 @@
 package table
 
 import (
-	"log"
 	"net"
 	"sort"
 
 	"github.com/Melenium2/kademlia"
 	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
 // orderedNodes stores Node's by their distance from our self Node.
@@ -74,6 +74,7 @@ type lookupConfig struct {
 type lookup struct {
 	// finder dials net calls to other nodes by their IP and ID.
 	finder finder
+	log    logger.Logger
 
 	// nodes which already asked for new closer nodes.
 	askedNodes map[kademlia.ID]struct{}
@@ -94,6 +95,7 @@ type lookup struct {
 func newLookup(cfg lookupConfig, finder finder, self *node.Node) *lookup {
 	return &lookup{
 		finder:      finder,
+		log:         logger.GetLogger(),
 		askedNodes:  make(map[kademlia.ID]struct{}),
 		seenNodes:   make(map[kademlia.ID]struct{}),
 		resultNodes: newOrderedNodes(self, BucketSize),
@@ -139,8 +141,7 @@ func (l *lookup) drainCh(resCh chan []*node.Node, errCh chan error) {
 	}
 
 	for err := range errCh {
-		log.Printf("TODO#(change to real logger) some error occures %s", err)
-		// todo log here
+		l.log.Errorf("error occurs while scan nodes %s", err)
 	}
 }
 
