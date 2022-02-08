@@ -19,7 +19,7 @@ func (id *ID) String() string {
 
 type Node struct {
 	id  ID
-	ip  net.IP
+	ip  net.IP // nolint:unused,structcheck
 	udp int
 }
 
@@ -48,7 +48,7 @@ func (n *Node) UDPPort() int {
 }
 
 func (n *Node) Compare(with []byte) bool {
-	return bytes.Compare(n.id.Bytes(), with) == 0
+	return bytes.Equal(n.id.Bytes(), with)
 }
 
 func GenerateID() (ID, error) {

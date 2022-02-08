@@ -141,8 +141,7 @@ func getSource() string {
 		return "unknown"
 	}
 
-	var filePrefix string
-	filePrefix = file[strings.LastIndex(file, "/")+1:]
+	filePrefix := file[strings.LastIndex(file, "/")+1:]
 
 	filename := filePrefix + ":" + strconv.Itoa(line)
 
