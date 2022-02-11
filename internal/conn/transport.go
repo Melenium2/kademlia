@@ -1,6 +1,8 @@
 package conn
 
 import (
+	"crypto/rand"
+	"fmt"
 	"net"
 
 	"github.com/Melenium2/kademlia"
@@ -15,8 +17,25 @@ type UDPConn interface {
 }
 
 type rpc struct {
-	self    *node.Node
-	waitFor byte
+	requestID []byte
+	self      *node.Node
+	request   Packet
+	resCh     chan Packet
+	errCh     chan error
+}
+
+func newRpc(self *node.Node, request Packet) *rpc {
+	r := rpc{
+		requestID: make([]byte, 8),
+		self:      self,
+		request:   request,
+		resCh:     make(chan Packet, 1),
+		errCh:     make(chan error, 1),
+	}
+
+	_, _ = rand.Read(r.requestID)
+
+	return &r
 }
 
 type Transport struct {
@@ -26,48 +45,84 @@ type Transport struct {
 	// queue of messages we need to send.
 	callQueue map[kademlia.ID][]*rpc
 	// map with messages we already send.
-	activeCalls map[kademlia.ID]*rpc
+	pendingCalls map[kademlia.ID]*rpc
+
+	nextCallCh   chan *rpc
+	cancelCallCh chan *rpc
 }
 
 func NewListener(conn UDPConn) *Transport {
 	return &Transport{
-		conn:        conn,
-		callQueue:   make(map[kademlia.ID][]*rpc),
-		activeCalls: make(map[kademlia.ID]*rpc),
+		conn:         conn,
+		callQueue:    make(map[kademlia.ID][]*rpc),
+		pendingCalls: make(map[kademlia.ID]*rpc),
+		nextCallCh:   make(chan *rpc, 10), // todo change here to constant
+		cancelCallCh: make(chan *rpc, 10),
 	}
 }
 
 func (t *Transport) Loop() error {
-	return nil
+	for {
+		select {
+		case nextCall := <-t.nextCallCh:
+			_ = nextCall
+			// where we need register new call in call queue
+			// and add call to pending calls.
+
+		case canceledCall := <-t.cancelCallCh:
+			_ = canceledCall
+			// where we need remove call from call queue
+			// and remove it from pending call.
+		}
+	}
 }
 
-func (t *Transport) SendPing(node *node.Node) error {
+func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
+	// set something to ping message
 	req := &Ping{}
-	resp := t.call(node, PongMessage, req)
-	_ = resp
+	remoteCall := t.call(node, req)
+	defer t.pruneCall(remoteCall)
 
-	// ------
-	// we need to send call and write new rpc to all maps
-	// then we need to create handler of all possible responses
-	// and wait response for ping message.
-	// ------
+	packet, err := consume(remoteCall.resCh, remoteCall.errCh)
+	if err != nil {
+		return nil, err
+	}
 
-	// im see two ways:
-	// 1) we should do calls one by one, then we can control flow
-	// 	  of messages and not use mutex.
-	// 2) we can send messages concurrently, but we need map it to requests
-	//    when response arrived, and here we need to use mutex for concurrent
-	//    access to map with requests.
-	return nil
+	pong, ok := packet.(*Pong)
+	if !ok {
+		return nil, fmt.Errorf("%w to ping request", ErrWrongMessageType)
+	}
+
+	return pong, nil
 }
 
 func (t *Transport) SendPong() error {
 	return nil
 }
 
-func (t *Transport) call(node *node.Node, responseType byte, req Packet) *rpc {
+func (t *Transport) call(node *node.Node, req Packet) *rpc {
+	remoteCall := newRpc(node, req)
 
-	return nil
+	t.nextCallCh <- remoteCall
+
+	return remoteCall
+}
+
+// pruneCall clears all response channels from rpc and remove rpc call
+// from pending calls.
+func (t *Transport) pruneCall(rpc *rpc) {
+	for {
+		select {
+		case <-rpc.resCh:
+		case <-rpc.errCh:
+		case t.cancelCallCh <- rpc:
+			return
+		}
+	}
+}
+
+func (t *Transport) nextCall() {
+	// unmarshal and send to some ip
 }
 
 func consume(packetCh chan Packet, errCh chan error) (Packet, error) {
