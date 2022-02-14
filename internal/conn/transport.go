@@ -64,21 +64,28 @@ func newRpc(reqID []byte, self *node.Node, request Packet) *rpc {
 	return &r
 }
 
+// Transport is structure for providing access to UDP network.
+// Transport provide various API for communicate with another
+// nodes in network.
 type Transport struct {
-	// established udp connection.
+	// Established udp connection.
 	conn UDPConn
 	log  logger.Logger
 
-	// queue of messages we need to send.
+	// Messages queue we need to send.
 	callQueue map[kademlia.ID][]*rpc
-	// map with messages we already send.
+	// Map with messages already sent.
 	pendingCalls map[kademlia.ID]*rpc
 
-	nextCallCh   chan *rpc
+	// Channel which provided access to next rpc call.
+	nextCallCh chan *rpc
+	// Channel which provide access to already
+	// returned rpc requests.
 	cancelCallCh chan *rpc
 }
 
-func NewListener(conn UDPConn) *Transport {
+// NewTransport create instance of Transport.
+func NewTransport(conn UDPConn) *Transport {
 	return &Transport{
 		conn:         conn,
 		log:          logger.GetLogger(),
