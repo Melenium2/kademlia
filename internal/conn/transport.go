@@ -1,13 +1,17 @@
 package conn
 
 import (
-	"crypto/rand"
+	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/Melenium2/kademlia"
 	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/pkg/logger"
 )
+
+const Timeout = 1 * time.Second
 
 type UDPConn interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
@@ -19,21 +23,43 @@ type UDPConn interface {
 type rpc struct {
 	requestID []byte
 	self      *node.Node
+	timeout   *time.Timer
 	request   Packet
-	resCh     chan Packet
+	resCh     chan []byte
 	errCh     chan error
 }
 
-func newRpc(self *node.Node, request Packet) *rpc {
-	r := rpc{
-		requestID: make([]byte, 8),
-		self:      self,
-		request:   request,
-		resCh:     make(chan Packet, 1),
-		errCh:     make(chan error, 1),
+func (r *rpc) ApplyTimeout(timeout time.Duration) {
+	if r.timeout != nil {
+		r.timeout.Stop()
 	}
 
-	_, _ = rand.Read(r.requestID)
+	var (
+		timer *time.Timer
+		done  = make(chan struct{})
+	)
+
+	time.AfterFunc(timeout, func() {
+		<-done
+		r.errCh <- errors.New("got rpc timeout")
+	})
+
+	r.timeout = timer
+	close(done)
+}
+
+func (r *rpc) StopTimeout() bool {
+	return r.timeout.Stop()
+}
+
+func newRpc(reqID []byte, self *node.Node, request Packet) *rpc {
+	r := rpc{
+		requestID: reqID,
+		self:      self,
+		request:   request,
+		resCh:     make(chan []byte, 1),
+		errCh:     make(chan error, 1),
+	}
 
 	return &r
 }
@@ -41,6 +67,7 @@ func newRpc(self *node.Node, request Packet) *rpc {
 type Transport struct {
 	// established udp connection.
 	conn UDPConn
+	log  logger.Logger
 
 	// queue of messages we need to send.
 	callQueue map[kademlia.ID][]*rpc
@@ -54,6 +81,7 @@ type Transport struct {
 func NewListener(conn UDPConn) *Transport {
 	return &Transport{
 		conn:         conn,
+		log:          logger.GetLogger(),
 		callQueue:    make(map[kademlia.ID][]*rpc),
 		pendingCalls: make(map[kademlia.ID]*rpc),
 		nextCallCh:   make(chan *rpc, 10), // todo change here to constant
@@ -65,25 +93,86 @@ func (t *Transport) Loop() error {
 	for {
 		select {
 		case nextCall := <-t.nextCallCh:
-			_ = nextCall
+			id := nextCall.self.ID()
+			t.callQueue[id] = append(t.callQueue[id], nextCall)
+			t.nextPending(id)
 			// where we need register new call in call queue
 			// and add call to pending calls.
 
 		case canceledCall := <-t.cancelCallCh:
-			_ = canceledCall
+			id := canceledCall.self.ID()
+			t.removeFromPending(id)
+			t.nextPending(id)
 			// where we need remove call from call queue
 			// and remove it from pending call.
 		}
 	}
 }
 
+func (t *Transport) nextPending(id kademlia.ID) {
+	queue := t.callQueue[id]
+	if len(queue) == 0 || t.pendingCalls[id] != nil {
+		return
+	}
+
+	call := queue[0]
+	t.pendingCalls[id] = call
+	_ = t.send(call)
+
+	if len(queue) == 1 {
+		delete(t.callQueue, id)
+	} else {
+		queue = queue[1:]
+		t.callQueue[id] = queue
+	}
+}
+
+func (t *Transport) removeFromPending(id kademlia.ID) {
+	var (
+		call *rpc
+		ok   bool
+	)
+
+	if call, ok = t.pendingCalls[id]; !ok {
+		t.log.Fatal("trying to remove inactive call, this is unreal")
+
+		return
+	}
+
+	_ = call.StopTimeout()
+	delete(t.pendingCalls, id)
+}
+
+func (t *Transport) send(call *rpc) error {
+	addr := &net.UDPAddr{
+		IP:   call.self.IP(),
+		Port: call.self.UDPPort(),
+	}
+
+	body := Marshal(call.request)
+
+	_, err := t.conn.WriteToUDP(body, addr)
+	if err != nil {
+		t.log.Warnf("can not send body: %s, to udp socket %s", body, addr.String())
+
+		return err
+	}
+
+	call.ApplyTimeout(Timeout)
+
+	return nil
+}
+
 func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
-	// set something to ping message
-	req := &Ping{}
-	remoteCall := t.call(node, req)
+	var (
+		reqID = GenerateReqID()
+		req   = &Ping{ReqID: reqID}
+	)
+
+	remoteCall := t.call(reqID, node, req)
 	defer t.pruneCall(remoteCall)
 
-	packet, err := consume(remoteCall.resCh, remoteCall.errCh)
+	packet, err := consume(PongMessage, remoteCall.resCh, remoteCall.errCh)
 	if err != nil {
 		return nil, err
 	}
@@ -96,12 +185,8 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	return pong, nil
 }
 
-func (t *Transport) SendPong() error {
-	return nil
-}
-
-func (t *Transport) call(node *node.Node, req Packet) *rpc {
-	remoteCall := newRpc(node, req)
+func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
+	remoteCall := newRpc(reqID, node, req)
 
 	t.nextCallCh <- remoteCall
 
@@ -121,18 +206,19 @@ func (t *Transport) pruneCall(rpc *rpc) {
 	}
 }
 
-func (t *Transport) nextCall() {
-	// unmarshal and send to some ip
-}
-
-func consume(packetCh chan Packet, errCh chan error) (Packet, error) {
+func consume(bodytype byte, packetCh chan []byte, errCh chan error) (Packet, error) {
 	var (
-		packet Packet
-		err    error
+		packet    Packet
+		rawPacket []byte
+		err       error
 	)
 
 	select {
-	case packet = <-packetCh:
+	case rawPacket = <-packetCh:
+		packet, err = Unmarshal(bodytype, rawPacket)
+		if err != nil {
+			return nil, err
+		}
 	case err = <-errCh:
 	}
 
