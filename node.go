@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/Melenium2/kademlia/internal/crypto"
+	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
 type ID [20]byte
@@ -23,15 +24,15 @@ type Node struct {
 	udp int
 }
 
-func NewNode() (*Node, error) {
+func NewNode() *Node {
 	id, err := GenerateID()
 	if err != nil {
-		return nil, err
+		logger.GetLogger().Fatal(err.Error())
 	}
 
 	return &Node{
 		id: id,
-	}, nil
+	}
 }
 
 func (n *Node) ID() ID {
