@@ -52,6 +52,12 @@ func (r *rpc) StopTimeout() bool {
 	return r.timeout.Stop()
 }
 
+// Close response channels.
+func (r *rpc) Close() {
+	close(r.resCh)
+	close(r.errCh)
+}
+
 func newRpc(reqID []byte, self *node.Node, request Packet) *rpc {
 	r := rpc{
 		requestID: reqID,
@@ -186,6 +192,7 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 
 	pong, ok := packet.(*Pong)
 	if !ok {
+		// this case should be never executed.
 		return nil, fmt.Errorf("%w to ping request", ErrWrongMessageType)
 	}
 
@@ -203,14 +210,14 @@ func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
 // pruneCall clears all response channels from rpc and remove rpc call
 // from pending calls.
 func (t *Transport) pruneCall(rpc *rpc) {
-	for {
-		select {
-		case <-rpc.resCh:
-		case <-rpc.errCh:
-		case t.cancelCallCh <- rpc:
-			return
-		}
+	rpc.Close()
+
+	for range rpc.resCh {
 	}
+	for range rpc.errCh {
+	}
+
+	t.cancelCallCh <- rpc
 }
 
 func consume(bodytype byte, packetCh chan []byte, errCh chan error) (Packet, error) {
