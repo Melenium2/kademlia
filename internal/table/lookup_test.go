@@ -16,7 +16,7 @@ import (
 )
 
 func randomNode() *node.Node {
-	newNode, _ := kademlia.NewNode()
+	newNode := kademlia.NewNode()
 
 	return node.WrapNode(newNode)
 }
