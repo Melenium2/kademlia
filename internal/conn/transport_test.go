@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/Melenium2/kademlia"
+	"github.com/Melenium2/kademlia/internal/conn/mocks"
 	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -115,4 +117,52 @@ func TestTransport_SendPing_Should_send_ping_request_and_got_pong_response(t *te
 	assert.NoError(t, err)
 	assert.Equal(t, expectedPong, pong)
 	assert.Len(t, transport.cancelCallCh, 1)
+}
+
+func TestTransport_Send_Should_marshal_and_send_rpc_request_to_udp_connection_and_apply_request_timeout(t *testing.T) {
+	rpcCall := &rpc{
+		requestID: nil,
+		self: &node.Node{
+			Node: kademlia.NewNode(),
+		},
+		request: expectedPong,
+	}
+	body := Marshal(rpcCall.request)
+
+	fakeConn := mocks.UDPConn{}
+	fakeConn.
+		On("WriteToUDP", body, &net.UDPAddr{}).
+		Return(0, nil)
+
+	transport := Transport{
+		conn: &fakeConn,
+	}
+
+	err := transport.send(rpcCall)
+	assert.NoError(t, err)
+}
+
+func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *testing.T) {
+	rpcCall := &rpc{
+		requestID: nil,
+		self: &node.Node{
+			Node: kademlia.NewNode(),
+		},
+		request: expectedPong,
+	}
+	body := Marshal(rpcCall.request)
+
+	fakeConn := mocks.UDPConn{}
+	fakeConn.
+		On("WriteToUDP", body, &net.UDPAddr{}).
+		Return(0, io.ErrClosedPipe)
+
+	transport := Transport{
+		conn: &fakeConn,
+		log:  logger.GetLogger(),
+	}
+
+	err := transport.send(rpcCall)
+	assert.Error(t, err)
+	assert.Equal(t, io.ErrClosedPipe, err)
 }
