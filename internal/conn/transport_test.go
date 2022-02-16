@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"context"
 	"io"
 	"net"
 	"testing"
@@ -233,4 +234,71 @@ func TestTransport_NextPending_Should_return_from_second_func_because_rpc_call_w
 	assert.Len(t, transport.pendingCalls, 1)
 	assert.Equal(t, testCall, transport.pendingCalls[id])
 	assert.Len(t, transport.callQueue, 0)
+}
+
+func TestTransport_Loop_Should_receive_new_call_and_add_it_to_call_queue(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	transport := NewTransport(fakeConn())
+
+	go func() {
+		err := transport.Loop(ctx)
+		assert.Error(t, err)
+		assert.Equal(t, context.Canceled, err)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	transport.nextCallCh <- testCall
+
+	time.Sleep(200 * time.Millisecond)
+
+	// nextPending func should remove first item from queue and set it
+	// to pendingCalls
+	assert.Len(t, transport.callQueue, 0)
+	assert.Len(t, transport.callQueue[id], 0)
+	assert.Len(t, transport.pendingCalls, 1)
+	assert.Equal(t, testCall, transport.pendingCalls[id])
+
+	cancel()
+	// wait for goroutine closing
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestTransport_Loop_Should_receive_cancel_call_message_and_remove_last_pending_call_from_store(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	transport := NewTransport(fakeConn())
+	transport.pendingCalls[id] = testCall
+
+	go func() {
+		err := transport.Loop(ctx)
+		assert.Error(t, err)
+		assert.Equal(t, context.Canceled, err)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	transport.cancelCallCh <- testCall
+
+	time.Sleep(200 * time.Millisecond)
+
+	assert.Len(t, transport.pendingCalls, 0)
+	assert.Nil(t, transport.pendingCalls[id])
+
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestTransport_Loop_Should_close_read_cycle(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	transport := NewTransport(fakeConn())
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+
+	err := transport.Loop(ctx)
+	assert.Error(t, err)
+	assert.Equal(t, context.Canceled, err)
 }
