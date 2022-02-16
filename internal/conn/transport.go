@@ -49,7 +49,11 @@ func (r *rpc) ApplyTimeout(timeout time.Duration) {
 }
 
 func (r *rpc) StopTimeout() bool {
-	return r.timeout.Stop()
+	if r.timeout != nil {
+		return r.timeout.Stop()
+	}
+
+	return false
 }
 
 // Close response channels.
