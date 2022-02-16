@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -106,7 +107,7 @@ func NewTransport(conn UDPConn) *Transport {
 	}
 }
 
-func (t *Transport) Loop() error {
+func (t *Transport) Loop(ctx context.Context) error {
 	for {
 		select {
 		case nextCall := <-t.nextCallCh:
@@ -120,8 +121,10 @@ func (t *Transport) Loop() error {
 			id := canceledCall.self.ID()
 			t.removeFromPending(id)
 			t.nextPending(id)
-			// where we need remove call from call queue
-			// and remove it from pending call.
+		// where we need remove call from call queue
+		// and remove it from pending call.
+		case <-ctx.Done():
+			return context.Canceled
 		}
 	}
 }
