@@ -119,38 +119,38 @@ func TestTransport_SendPing_Should_send_ping_request_and_got_pong_response(t *te
 	assert.Len(t, transport.cancelCallCh, 1)
 }
 
-func TestTransport_Send_Should_marshal_and_send_rpc_request_to_udp_connection_and_apply_request_timeout(t *testing.T) {
-	rpcCall := &rpc{
+var (
+	testCall = &rpc{
 		requestID: nil,
 		self: &node.Node{
 			Node: kademlia.NewNode(),
 		},
 		request: expectedPong,
 	}
-	body := Marshal(rpcCall.request)
+	id       = testCall.self.ID()
+	fakeConn = func() UDPConn {
+		testbody := Marshal(testCall.request)
 
-	fakeConn := mocks.UDPConn{}
-	fakeConn.
-		On("WriteToUDP", body, &net.UDPAddr{}).
-		Return(0, nil)
+		fake := mocks.UDPConn{}
+		fake.
+			On("WriteToUDP", testbody, &net.UDPAddr{}).
+			Return(0, nil)
 
+		return &fake
+	}
+)
+
+func TestTransport_Send_Should_marshal_and_send_rpc_request_to_udp_connection_and_apply_request_timeout(t *testing.T) {
 	transport := Transport{
-		conn: &fakeConn,
+		conn: fakeConn(),
 	}
 
-	err := transport.send(rpcCall)
+	err := transport.send(testCall)
 	assert.NoError(t, err)
 }
 
 func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *testing.T) {
-	rpcCall := &rpc{
-		requestID: nil,
-		self: &node.Node{
-			Node: kademlia.NewNode(),
-		},
-		request: expectedPong,
-	}
-	body := Marshal(rpcCall.request)
+	body := Marshal(testCall.request)
 
 	fakeConn := mocks.UDPConn{}
 	fakeConn.
@@ -162,7 +162,75 @@ func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *
 		log:  logger.GetLogger(),
 	}
 
-	err := transport.send(rpcCall)
+	err := transport.send(testCall)
 	assert.Error(t, err)
 	assert.Equal(t, io.ErrClosedPipe, err)
+}
+
+func TestTransport_RemoveFromPending_Should_remove_rpc_call_with_provided_id_from_local_state(t *testing.T) {
+	transport := NewTransport(nil)
+	transport.pendingCalls[id] = testCall
+
+	transport.removeFromPending(id)
+
+	assert.Len(t, transport.pendingCalls, 0)
+}
+
+func TestTransport_NextPending_Should_send_next_pending_call_and_remove_it_from_queue(t *testing.T) {
+	transport := NewTransport(fakeConn())
+
+	transport.callQueue[id] = append(transport.callQueue[id], testCall)
+
+	transport.nextPending(id)
+
+	assert.Len(t, transport.pendingCalls, 1)
+	assert.Equal(t, testCall, transport.pendingCalls[id])
+	assert.Len(t, transport.callQueue, 0)
+}
+
+func TestTransport_NextPending_Should_send_next_pending_call_but_in_queue_should_stay_one_more(t *testing.T) {
+	transport := NewTransport(fakeConn())
+
+	transport.callQueue[id] = append(transport.callQueue[id], testCall, testCall)
+
+	transport.nextPending(id)
+
+	assert.Len(t, transport.pendingCalls, 1)
+	assert.Equal(t, testCall, transport.pendingCalls[id])
+	assert.Len(t, transport.callQueue, 1)
+}
+
+func TestTransport_NextPending_Should_return_from_func_if_call_queue_is_empty(t *testing.T) {
+	transport := NewTransport(fakeConn())
+
+	transport.nextPending(id)
+
+	assert.Len(t, transport.pendingCalls, 0)
+	assert.Len(t, transport.callQueue, 0)
+}
+
+func TestTransport_NextPending_Should_return_from_func_if_queue_by_provided_id_is_empty(t *testing.T) {
+	anotherID, _ := kademlia.GenerateID()
+
+	transport := NewTransport(fakeConn())
+	transport.callQueue[anotherID] = append(transport.callQueue[anotherID], testCall)
+
+	transport.nextPending(id)
+
+	assert.Len(t, transport.pendingCalls, 0)
+	assert.Len(t, transport.callQueue, 1)
+	assert.Len(t, transport.callQueue[anotherID], 1)
+}
+
+func TestTransport_NextPending_Should_return_from_second_func_because_rpc_call_with_provided_id_already_in_pending_state(t *testing.T) {
+	transport := NewTransport(fakeConn())
+
+	transport.callQueue[id] = append(transport.callQueue[id], testCall)
+
+	transport.nextPending(id)
+	transport.nextPending(id)
+
+	assert.Len(t, transport.pendingCalls, 1)
+	assert.Equal(t, testCall, transport.pendingCalls[id])
+	assert.Len(t, transport.callQueue, 0)
 }
