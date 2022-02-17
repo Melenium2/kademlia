@@ -257,6 +257,8 @@ func TestTransport_Loop_Should_receive_new_call_and_add_it_to_call_queue(t *test
 
 	time.Sleep(200 * time.Millisecond)
 
+	// we close loop here for safe data access. If not call close here
+	// we can get datarace.
 	cancel()
 	// wait for goroutine closing
 	time.Sleep(100 * time.Millisecond)
@@ -286,6 +288,8 @@ func TestTransport_Loop_Should_receive_cancel_call_message_and_remove_last_pendi
 
 	time.Sleep(200 * time.Millisecond)
 
+	// we close loop here for safe data access. If not call close here
+	// we can get datarace.
 	cancel()
 
 	time.Sleep(100 * time.Millisecond)
