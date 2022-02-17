@@ -93,6 +93,11 @@ func TestTransport_PruneCall_Should_retrieve_all_items_from_rpc_channels_and_the
 	assert.Len(t, rpcCall.resCh, 0)
 	assert.Len(t, rpcCall.errCh, 0)
 	assert.Len(t, transport.cancelCallCh, 1)
+	// checking, that channels are closed.
+	_, ok := <-rpcCall.errCh
+	assert.False(t, ok)
+	_, ok = <-rpcCall.resCh
+	assert.False(t, ok)
 }
 
 var (
@@ -252,16 +257,16 @@ func TestTransport_Loop_Should_receive_new_call_and_add_it_to_call_queue(t *test
 
 	time.Sleep(200 * time.Millisecond)
 
+	cancel()
+	// wait for goroutine closing
+	time.Sleep(100 * time.Millisecond)
+
 	// nextPending func should remove first item from queue and set it
 	// to pendingCalls
 	assert.Len(t, transport.callQueue, 0)
 	assert.Len(t, transport.callQueue[id], 0)
 	assert.Len(t, transport.pendingCalls, 1)
 	assert.Equal(t, testCall, transport.pendingCalls[id])
-
-	cancel()
-	// wait for goroutine closing
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestTransport_Loop_Should_receive_cancel_call_message_and_remove_last_pending_call_from_store(t *testing.T) {
@@ -281,12 +286,13 @@ func TestTransport_Loop_Should_receive_cancel_call_message_and_remove_last_pendi
 
 	time.Sleep(200 * time.Millisecond)
 
-	assert.Len(t, transport.pendingCalls, 0)
-	assert.Nil(t, transport.pendingCalls[id])
-
 	cancel()
 
 	time.Sleep(100 * time.Millisecond)
+
+	assert.Len(t, transport.pendingCalls, 0)
+	assert.Nil(t, transport.pendingCalls[id])
+
 }
 
 func TestTransport_Loop_Should_close_read_cycle(t *testing.T) {
