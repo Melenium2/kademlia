@@ -107,6 +107,10 @@ func NewTransport(conn UDPConn) *Transport {
 	}
 }
 
+// Loop is main request/response cycle here. Loop make queue incoming requests
+// and handle out coming responses.
+//
+// If you needed to close cycle, you need juts cancel provided context.
 func (t *Transport) Loop(ctx context.Context) error {
 	for {
 		select {
@@ -129,6 +133,9 @@ func (t *Transport) Loop(ctx context.Context) error {
 	}
 }
 
+// nextPending handles next item in rpc calls queue by provided ID.
+// If no items in queue with this ID or some call already in pending state,
+// function just return without any message.
 func (t *Transport) nextPending(id kademlia.ID) {
 	queue := t.callQueue[id]
 	if len(queue) == 0 || t.pendingCalls[id] != nil {
@@ -147,6 +154,13 @@ func (t *Transport) nextPending(id kademlia.ID) {
 	}
 }
 
+// removeFromPending removes last rpc call with provided ID from pending
+// state.
+//
+// If this function called with ID, which not contains inside
+// pending mapping, then function will call FATAL exit, because
+// this situation impossible if all components will work in normal
+// mode.
 func (t *Transport) removeFromPending(id kademlia.ID) {
 	var (
 		call *rpc
@@ -163,6 +177,10 @@ func (t *Transport) removeFromPending(id kademlia.ID) {
 	delete(t.pendingCalls, id)
 }
 
+// send rpc message to client.
+//
+// This function, also, apply timeout to the rpc call. If it not
+// completes in Timeout time, then rpc call return error.
 func (t *Transport) send(call *rpc) error {
 	addr := &net.UDPAddr{
 		IP:   call.self.IP(),
@@ -183,6 +201,7 @@ func (t *Transport) send(call *rpc) error {
 	return nil
 }
 
+// SendPing message to provided node.
 func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	var (
 		reqID = GenerateReqID()
@@ -206,6 +225,7 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	return pong, nil
 }
 
+// call creates new rpc message and pass it to queue.
 func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
 	remoteCall := newRpc(reqID, node, req)
 
@@ -214,7 +234,7 @@ func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
 	return remoteCall
 }
 
-// pruneCall clears all response channels from rpc and remove rpc call
+// pruneCall clears all rpc response channels and remove call
 // from pending calls.
 func (t *Transport) pruneCall(rpc *rpc) {
 	rpc.Close()
@@ -227,6 +247,8 @@ func (t *Transport) pruneCall(rpc *rpc) {
 	t.cancelCallCh <- rpc
 }
 
+// consume wait for first message from packetCh or errCh and return
+// that comes first.
 func consume(bodytype byte, packetCh chan []byte, errCh chan error) (Packet, error) {
 	var (
 		packet    Packet
