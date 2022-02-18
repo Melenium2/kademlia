@@ -192,6 +192,7 @@ func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 
 			l.askedNodes[curr.ID()] = struct{}{}
 			l.started++
+
 			go l.scan(curr, resCh, errCh)
 		}
 

@@ -39,7 +39,7 @@ func (n *Node) ID() ID {
 	return n.id
 }
 
-// TODO unimplemented
+// TODO unimplemented.
 func (n *Node) IP() net.IP {
 	return nil
 }
