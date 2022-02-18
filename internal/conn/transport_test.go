@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	rawPong      = append([]byte{0x02}, []byte(`{"req_id":"MTMxMjMxMjM=","ip":"1.1.1.1","port":5222}`)...)
-	expectedPong = &Pong{
+	defaultPongBody = []byte{0x01, 0x08, 0x00, 0x34, 0x00, 0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
+	rawPong         = append(defaultPongBody, []byte(`{"req_id":"MTMxMjMxMjM=","ip":"1.1.1.1","port":5222}`)...)
+	expectedPong    = &Pong{
 		ReqID: []byte("13123123"),
 		IP:    net.IPv4(1, 1, 1, 1),
 		Port:  5222,
@@ -47,7 +48,7 @@ func TestConsume_Should_consume_packet_but_got_error_while_unmarshalling(t *test
 		packetCh = make(chan []byte, 1)
 		errCh    = make(chan error, 1)
 		// here we got wrong type of req_id, we can not unmarshal string to slice of byte.
-		internalRawPong = append([]byte{0x01}, []byte(`{"req_id":"123123","ip":"1.1.1.1","port":5222}`)...)
+		internalRawPong = append(defaultPongBody, []byte(`{"req_id":"123123","ip":"1.1.1.1","port":5222}`)...)
 	)
 
 	go func() {
@@ -134,7 +135,7 @@ var (
 	}
 	id       = testCall.self.ID()
 	fakeConn = func() UDPConn {
-		testbody := Marshal(testCall.request)
+		testbody := Marshal(id[:], testCall.request)
 
 		fake := mocks.UDPConn{}
 		fake.
@@ -150,12 +151,12 @@ func TestTransport_Send_Should_marshal_and_send_rpc_request_to_udp_connection_an
 		conn: fakeConn(),
 	}
 
-	err := transport.send(testCall)
+	err := transport.sendNext(testCall)
 	assert.NoError(t, err)
 }
 
 func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *testing.T) {
-	body := Marshal(testCall.request)
+	body := Marshal(id[:], testCall.request)
 
 	fakeConn := mocks.UDPConn{}
 	fakeConn.
@@ -167,7 +168,7 @@ func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *
 		log:  logger.GetLogger(),
 	}
 
-	err := transport.send(testCall)
+	err := transport.sendNext(testCall)
 	assert.Error(t, err)
 	assert.Equal(t, io.ErrClosedPipe, err)
 }

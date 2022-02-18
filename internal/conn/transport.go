@@ -12,7 +12,10 @@ import (
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
-const Timeout = 1 * time.Second
+const (
+	Timeout        = 1 * time.Second
+	MaxMessageSize = 1000
+)
 
 type UDPConn interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
@@ -46,6 +49,7 @@ func (r *rpc) ApplyTimeout(timeout time.Duration) {
 	})
 
 	r.timeout = timer
+
 	close(done)
 }
 
@@ -63,7 +67,7 @@ func (r *rpc) Close() {
 	close(r.errCh)
 }
 
-func newRpc(reqID []byte, self *node.Node, request Packet) *rpc {
+func newRPC(reqID []byte, self *node.Node, request Packet) *rpc {
 	r := rpc{
 		requestID: reqID,
 		self:      self,
@@ -83,7 +87,7 @@ type Transport struct {
 	conn UDPConn
 	log  logger.Logger
 
-	// Messages queue we need to send.
+	// Messages queue we need to sendNext.
 	callQueue map[kademlia.ID][]*rpc
 	// Map with messages already sent.
 	pendingCalls map[kademlia.ID]*rpc
@@ -102,8 +106,9 @@ func NewTransport(conn UDPConn) *Transport {
 		log:          logger.GetLogger(),
 		callQueue:    make(map[kademlia.ID][]*rpc),
 		pendingCalls: make(map[kademlia.ID]*rpc),
-		nextCallCh:   make(chan *rpc, 10), // todo change here to constant
-		cancelCallCh: make(chan *rpc, 10),
+		// todo change here to constant
+		cancelCallCh: make(chan *rpc, 10), // nolint:gomnd
+		nextCallCh:   make(chan *rpc, 10), // nolint:gomnd
 	}
 }
 
@@ -144,7 +149,7 @@ func (t *Transport) nextPending(id kademlia.ID) {
 
 	call := queue[0]
 	t.pendingCalls[id] = call
-	_ = t.send(call)
+	_ = t.sendNext(call)
 
 	if len(queue) == 1 {
 		delete(t.callQueue, id)
@@ -174,29 +179,38 @@ func (t *Transport) removeFromPending(id kademlia.ID) {
 	}
 
 	_ = call.StopTimeout()
+
 	delete(t.pendingCalls, id)
 }
 
-// send rpc message to client.
+// sendNext rpc message to client.
 //
 // This function, also, apply timeout to the rpc call. If it not
 // completes in Timeout time, then rpc call return error.
-func (t *Transport) send(call *rpc) error {
+func (t *Transport) sendNext(call *rpc) error {
 	addr := &net.UDPAddr{
 		IP:   call.self.IP(),
 		Port: call.self.UDPPort(),
 	}
 
-	body := Marshal(call.request)
-
-	_, err := t.conn.WriteToUDP(body, addr)
-	if err != nil {
-		t.log.Warnf("can not send body: %s, to udp socket %s", body, addr.String())
-
+	if err := t.send(call.self.ID(), call.request, addr); err != nil {
 		return err
 	}
 
 	call.ApplyTimeout(Timeout)
+
+	return nil
+}
+
+func (t *Transport) send(fromID kademlia.ID, req Packet, addr *net.UDPAddr) error {
+	body := Marshal(fromID[:], req)
+
+	_, err := t.conn.WriteToUDP(body, addr)
+	if err != nil {
+		t.log.Warnf("can not sendNext body: %s, to udp socket %s", body, addr.String())
+
+		return err
+	}
 
 	return nil
 }
@@ -211,7 +225,7 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	remoteCall := t.call(reqID, node, req)
 	defer t.pruneCall(remoteCall)
 
-	packet, err := consume(PongMessage, remoteCall.resCh, remoteCall.errCh)
+	packet, err := consume(remoteCall.resCh, remoteCall.errCh)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +241,7 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 
 // call creates new rpc message and pass it to queue.
 func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
-	remoteCall := newRpc(reqID, node, req)
+	remoteCall := newRPC(reqID, node, req)
 
 	t.nextCallCh <- remoteCall
 
@@ -241,15 +255,76 @@ func (t *Transport) pruneCall(rpc *rpc) {
 
 	for range rpc.resCh {
 	}
+
 	for range rpc.errCh {
 	}
 
 	t.cancelCallCh <- rpc
 }
 
+// nolint:unused
+func (t *Transport) readFromNetwork(ctx context.Context) {
+	buf := make([]byte, MaxMessageSize)
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.log.Warnf("read network cycle is closed, reason %w", ctx.Err())
+
+			return
+		default:
+			n, addr, err := t.conn.ReadFromUDP(buf)
+			if err != nil {
+				t.log.Errorf("UDP read error, closing for read network cycle, reason %w", err)
+
+				return
+			}
+
+			t.handleNetworkPacket(buf[:n], addr)
+		}
+	}
+}
+
+// nolint:unused
+func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
+	packet, id, err := Unmarshal(body)
+	if err != nil {
+		t.log.Errorf("can not unmarshal incoming message, reason %w", err)
+	}
+
+	switch p := packet.(type) {
+	case *Ping:
+		t.handlePing(id, p, addr)
+	case *Pong:
+		t.handlePong(id, p, addr)
+	}
+
+	t.log.Warnf("got unknown packet type %+v", packet)
+}
+
+// nolint:unused
+func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) {
+	ip := addr.IP.To4()
+
+	pong := &Pong{
+		ReqID: ping.ReqID,
+		IP:    ip,
+		Port:  uint16(addr.Port),
+	}
+
+	if err := t.send(kademlia.NewIDFromSlice(id), pong, addr); err != nil {
+		t.log.Errorf("can not send pong back to ping request, request ID %s, reason %w", ping.ReqID, err)
+	}
+}
+
+// nolint:unused
+func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) {
+
+}
+
 // consume wait for first message from packetCh or errCh and return
 // that comes first.
-func consume(bodytype byte, packetCh chan []byte, errCh chan error) (Packet, error) {
+func consume(packetCh chan []byte, errCh chan error) (Packet, error) {
 	var (
 		packet    Packet
 		rawPacket []byte
@@ -258,7 +333,7 @@ func consume(bodytype byte, packetCh chan []byte, errCh chan error) (Packet, err
 
 	select {
 	case rawPacket = <-packetCh:
-		packet, err = Unmarshal(bodytype, rawPacket)
+		packet, _, err = Unmarshal(rawPacket)
 		if err != nil {
 			return nil, err
 		}

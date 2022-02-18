@@ -1,7 +1,9 @@
 package conn
 
 import (
+	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"net"
 )
@@ -60,23 +62,43 @@ func GenerateReqID() []byte {
 	return reqID
 }
 
-func Marshal(packet Packet) []byte {
+func Marshal(fromID []byte, packet Packet) []byte {
 	raw, _ := json.Marshal(packet) // nolint:errchkjson
 
-	marshaled := make([]byte, len(raw)+1)
-	copy(marshaled[1:], raw)
+	var (
+		lenRaw  = len(raw)
+		lenID   = len(fromID)
+		lenType = 1
+		// 5 is count of bytes: uint16 + uint16 + uint8.
+		buf = bytes.NewBuffer(make([]byte, 0, lenRaw+lenID+lenType+5)) // nolint:gomnd
+	)
 
-	marshaled[0] = packet.IAm()
+	buf.WriteByte(byte(lenType))
+	_ = binary.Write(buf, binary.LittleEndian, uint16(lenID))
+	_ = binary.Write(buf, binary.LittleEndian, uint16(lenRaw))
+	buf.WriteByte(packet.IAm())
+	buf.Write(fromID)
+	buf.Write(raw)
 
-	return marshaled
+	return buf.Bytes()
 }
 
-func Unmarshal(raw []byte) (Packet, error) {
+func Unmarshal(raw []byte) (Packet, []byte, error) {
 	if len(raw) == 0 {
-		return nil, ErrEmptyMessage
+		return nil, nil, ErrEmptyMessage
 	}
 
-	bodytype := raw[0]
+	var (
+		buf = bytes.NewBuffer(raw)
+
+		lenType = buf.Next(1)[0]
+		lenID   = binary.LittleEndian.Uint16(buf.Next(2))
+		lenRaw  = binary.LittleEndian.Uint16(buf.Next(2))
+
+		bodytype = buf.Next(int(lenType))[0]
+		fromID   = buf.Next(int(lenID))
+		body     = buf.Next(int(lenRaw))
+	)
 
 	var packet Packet
 
@@ -87,9 +109,9 @@ func Unmarshal(raw []byte) (Packet, error) {
 		packet = &Pong{}
 	}
 
-	if err := json.Unmarshal(raw[1:], &packet); err != nil {
-		return nil, err
+	if err := json.Unmarshal(body, &packet); err != nil {
+		return nil, nil, err
 	}
 
-	return packet, nil
+	return packet, fromID, nil
 }
