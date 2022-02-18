@@ -63,7 +63,7 @@ func newLogger(logLevel string) *CustomLogger {
 		return fmt.Sprintf("ts=%s", i)
 	}
 	output.FormatLevel = func(i interface{}) string {
-		return fmt.Sprintf("lvl=%s", strings.ToUpper(i.(string)))
+		return fmt.Sprintf("lvl=%s", strings.ToUpper(i.(string))) // nolint:forcetypeassert
 	}
 	output.FormatMessage = func(i interface{}) string {
 		str, _ := i.(string)
@@ -149,5 +149,5 @@ func getSource() string {
 }
 
 func editStringWithQuotes(stringWithQuotes string) string {
-	return strings.Replace(stringWithQuotes, "\"", "\\\"", -1)
+	return strings.ReplaceAll(stringWithQuotes, "\"", "\\\"")
 }
