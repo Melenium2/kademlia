@@ -10,6 +10,14 @@ import (
 
 type ID [20]byte
 
+func NewID(id [20]byte) ID {
+	return id
+}
+
+func NewIDFromSlice(id []byte) ID {
+	return *(*[20]byte)(id)
+}
+
 func (id *ID) Bytes() []byte {
 	return id[:]
 }
