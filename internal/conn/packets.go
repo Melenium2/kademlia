@@ -52,7 +52,8 @@ func (p *Pong) IAm() byte {
 }
 
 func GenerateReqID() []byte {
-	reqID := make([]byte, 8)
+	// TODO mb move ID len to cons
+	reqID := make([]byte, 8) // nolint:gomnd
 
 	_, _ = rand.Read(reqID)
 
@@ -60,13 +61,25 @@ func GenerateReqID() []byte {
 }
 
 func Marshal(packet Packet) []byte {
-	raw, _ := json.Marshal(packet)
+	raw, _ := json.Marshal(packet) // nolint:errchkjson
 
-	return raw
+	marshaled := make([]byte, len(raw)+1)
+	copy(marshaled[1:], raw)
+
+	marshaled[0] = packet.IAm()
+
+	return marshaled
 }
 
-func Unmarshal(bodytype byte, raw []byte) (Packet, error) {
+func Unmarshal(raw []byte) (Packet, error) {
+	if len(raw) == 0 {
+		return nil, ErrEmptyMessage
+	}
+
+	bodytype := raw[0]
+
 	var packet Packet
+
 	switch bodytype {
 	case PingMessage:
 		packet = &Ping{}
@@ -74,7 +87,7 @@ func Unmarshal(bodytype byte, raw []byte) (Packet, error) {
 		packet = &Pong{}
 	}
 
-	if err := json.Unmarshal(raw, &packet); err != nil {
+	if err := json.Unmarshal(raw[1:], &packet); err != nil {
 		return nil, err
 	}
 

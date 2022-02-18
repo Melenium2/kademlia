@@ -15,8 +15,7 @@ import (
 )
 
 var (
-	bodytype     = PongMessage
-	rawPong      = []byte(`{"req_id":"MTMxMjMxMjM=","ip":"1.1.1.1","port":5222}`)
+	rawPong      = append([]byte{0x02}, []byte(`{"req_id":"MTMxMjMxMjM=","ip":"1.1.1.1","port":5222}`)...)
 	expectedPong = &Pong{
 		ReqID: []byte("13123123"),
 		IP:    net.IPv4(1, 1, 1, 1),
@@ -35,7 +34,7 @@ func TestConsume_Should_consume_new_packet_from_result_channel_and_unmarshal_it_
 		packetCh <- rawPong
 	}()
 
-	packet, err := consume(bodytype, packetCh, errCh)
+	packet, err := consume(packetCh, errCh)
 	assert.NoError(t, err)
 
 	pong, ok := packet.(*Pong)
@@ -48,7 +47,7 @@ func TestConsume_Should_consume_packet_but_got_error_while_unmarshalling(t *test
 		packetCh = make(chan []byte, 1)
 		errCh    = make(chan error, 1)
 		// here we got wrong type of req_id, we can not unmarshal string to slice of byte.
-		internalRawPong = []byte(`{"req_id":"123123","ip":"1.1.1.1","port":5222}`)
+		internalRawPong = append([]byte{0x01}, []byte(`{"req_id":"123123","ip":"1.1.1.1","port":5222}`)...)
 	)
 
 	go func() {
@@ -56,7 +55,7 @@ func TestConsume_Should_consume_packet_but_got_error_while_unmarshalling(t *test
 		packetCh <- internalRawPong
 	}()
 
-	_, err := consume(bodytype, packetCh, errCh)
+	_, err := consume(packetCh, errCh)
 	assert.Error(t, err)
 }
 
@@ -71,7 +70,7 @@ func TestConsume_Should_got_error_while_waiting_for_new_packet(t *testing.T) {
 		errCh <- io.ErrClosedPipe
 	}()
 
-	_, err := consume(bodytype, packetCh, errCh)
+	_, err := consume(packetCh, errCh)
 	assert.Error(t, err)
 	assert.Equal(t, io.ErrClosedPipe, err)
 }
