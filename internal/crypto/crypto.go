@@ -2,11 +2,11 @@ package crypto
 
 import (
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" // nolint:gosec
 )
 
 func Sha1() ([]byte, error) {
-	hash := sha1.New()
+	hash := sha1.New() // nolint:gosec
 
 	str := make([]byte, 100) // nolint:gomnd
 
