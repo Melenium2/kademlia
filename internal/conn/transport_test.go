@@ -15,24 +15,22 @@ import (
 )
 
 var (
-	defaultPongBody = []byte{0x01, 0x08, 0x00, 0x34, 0x00, 0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
-	rawPong         = append(defaultPongBody, []byte(`{"req_id":"MTMxMjMxMjM=","ip":"1.1.1.1","port":5222}`)...)
-	expectedPong    = &Pong{
+	expectedPong = &Pong{
 		ReqID: []byte("13123123"),
 		IP:    net.IPv4(1, 1, 1, 1),
 		Port:  5222,
 	}
 )
 
-func TestConsume_Should_consume_new_packet_from_result_channel_and_unmarshal_it_with_provided_type(t *testing.T) {
+func TestConsume_Should_consume_new_packet_from_result_channel(t *testing.T) {
 	var (
-		packetCh = make(chan []byte, 1)
+		packetCh = make(chan Packet, 1)
 		errCh    = make(chan error, 1)
 	)
 
 	go func() {
 		time.Sleep(300 * time.Millisecond)
-		packetCh <- rawPong
+		packetCh <- expectedPong
 	}()
 
 	packet, err := consume(packetCh, errCh)
@@ -43,26 +41,9 @@ func TestConsume_Should_consume_new_packet_from_result_channel_and_unmarshal_it_
 	assert.Equal(t, expectedPong, pong)
 }
 
-func TestConsume_Should_consume_packet_but_got_error_while_unmarshalling(t *testing.T) {
-	var (
-		packetCh = make(chan []byte, 1)
-		errCh    = make(chan error, 1)
-		// here we got wrong type of req_id, we can not unmarshal string to slice of byte.
-		internalRawPong = append(defaultPongBody, []byte(`{"req_id":"123123","ip":"1.1.1.1","port":5222}`)...)
-	)
-
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		packetCh <- internalRawPong
-	}()
-
-	_, err := consume(packetCh, errCh)
-	assert.Error(t, err)
-}
-
 func TestConsume_Should_got_error_while_waiting_for_new_packet(t *testing.T) {
 	var (
-		packetCh = make(chan []byte, 1)
+		packetCh = make(chan Packet, 1)
 		errCh    = make(chan error, 1)
 	)
 
@@ -78,11 +59,11 @@ func TestConsume_Should_got_error_while_waiting_for_new_packet(t *testing.T) {
 
 func TestTransport_PruneCall_Should_retrieve_all_items_from_rpc_channels_and_then_send_rpc_to_cancel_channel(t *testing.T) {
 	rpcCall := &rpc{
-		resCh: make(chan []byte, 1),
+		resCh: make(chan Packet, 1),
 		errCh: make(chan error, 1),
 	}
 
-	rpcCall.resCh <- []byte("123123123")
+	rpcCall.resCh <- expectedPong
 	rpcCall.errCh <- io.ErrClosedPipe
 
 	transport := Transport{
@@ -116,7 +97,7 @@ func TestTransport_SendPing_Should_send_ping_request_and_got_pong_response(t *te
 		time.Sleep(300 * time.Millisecond)
 
 		rpcCall := <-transport.nextCallCh
-		rpcCall.resCh <- rawPong
+		rpcCall.resCh <- expectedPong
 	}()
 
 	pong, err := transport.SendPing(testNode)
@@ -311,4 +292,103 @@ func TestTransport_Loop_Should_close_read_cycle(t *testing.T) {
 	err := transport.Loop(ctx)
 	assert.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
+}
+
+func TestValidateIncomingPacket(t *testing.T) {
+	var tt = []struct {
+		name     string
+		waitFor  byte
+		pending  Packet
+		incoming Packet
+		pendAddr *net.UDPAddr
+		incAddr  *net.UDPAddr
+		expected error
+	}{
+		{
+			name:    "should successfully validate incoming packet",
+			waitFor: PongMessage,
+			pending: &Ping{
+				ReqID: []byte("13123123"),
+			},
+			incoming: expectedPong,
+			pendAddr: &net.UDPAddr{
+				IP:   expectedPong.IP,
+				Port: int(expectedPong.Port),
+			},
+			incAddr: &net.UDPAddr{
+				IP:   net.IPv4(1, 1, 1, 1),
+				Port: 5222,
+			},
+			expected: nil,
+		},
+		{
+			name: "should return error if request IDs is not same",
+			pending: &Ping{
+				ReqID: []byte("111111111"),
+			},
+			incoming: &Pong{
+				ReqID: expectedPong.ReqID,
+			},
+			expected: ErrValidate,
+		},
+		{
+			name:    "should return error if type of incoming message it not same with expected",
+			waitFor: PingMessage,
+			pending: &Ping{
+				ReqID: expectedPong.ReqID,
+			},
+			incoming: &Pong{
+				ReqID: expectedPong.ReqID,
+			},
+			expected: ErrValidate,
+		},
+		{
+			name:    "should return error if IP address in incoming message is not same with pending node IP",
+			waitFor: PongMessage,
+			pending: &Ping{
+				ReqID: expectedPong.ReqID,
+			},
+			incoming: &Pong{
+				ReqID: expectedPong.ReqID,
+			},
+			pendAddr: &net.UDPAddr{
+				IP: net.IPv4(2, 2, 2, 2),
+			},
+			incAddr: &net.UDPAddr{
+				IP: expectedPong.IP,
+			},
+			expected: ErrValidate,
+		},
+		{
+			name:    "should return error if PORT field in incoming message is not same with pending node PORT",
+			waitFor: PongMessage,
+			pending: &Ping{
+				ReqID: expectedPong.ReqID,
+			},
+			incoming: &Pong{
+				ReqID: expectedPong.ReqID,
+			},
+			pendAddr: &net.UDPAddr{
+				IP:   expectedPong.IP,
+				Port: 1111,
+			},
+			incAddr: &net.UDPAddr{
+				IP:   expectedPong.IP,
+				Port: int(expectedPong.Port),
+			},
+			expected: ErrValidate,
+		},
+	}
+
+	t.Parallel()
+
+	for _, tc := range tt {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validateIncomingPacket(tc.waitFor, tc.pending, tc.incoming, tc.pendAddr, tc.incAddr)
+			assert.ErrorIs(t, err, tc.expected)
+		})
+	}
 }
