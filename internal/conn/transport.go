@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -29,7 +30,7 @@ type rpc struct {
 	self      *node.Node
 	timeout   *time.Timer
 	request   Packet
-	resCh     chan []byte
+	resCh     chan Packet
 	errCh     chan error
 }
 
@@ -72,7 +73,7 @@ func newRPC(reqID []byte, self *node.Node, request Packet) *rpc {
 		requestID: reqID,
 		self:      self,
 		request:   request,
-		resCh:     make(chan []byte, 1),
+		resCh:     make(chan Packet, 1),
 		errCh:     make(chan error, 1),
 	}
 
@@ -319,24 +320,77 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) {
 
 // nolint:unused
 func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) {
+	kadeID := kademlia.NewIDFromSlice(id)
 
+	pc, ok := t.pendingCalls[kadeID]
+	if !ok {
+		t.log.Errorf("node with arrived ID not found, got wrong ID")
+	}
+
+	selfAddr := &net.UDPAddr{
+		IP:   pc.self.IP(),
+		Port: pc.self.UDPPort(),
+	}
+
+	if err := validateIncomingPacket(PongMessage, pc.request, pong, selfAddr, addr); err != nil {
+		t.log.Error(err.Error())
+	}
+
+	pc.ApplyTimeout(Timeout)
+
+	pc.resCh <- pong
+}
+
+func validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr) error {
+	if !bytes.Equal(pending.GetRequestID(), incoming.GetRequestID()) {
+		return fmt.Errorf(
+			"%w, request ID of found node (%s) not equals to incoming request ID (%s)",
+			ErrValidate,
+			pending.GetRequestID(),
+			incoming.GetRequestID(),
+		)
+	}
+
+	if waitFor != incoming.IAm() {
+		return fmt.Errorf(
+			"%w, got unexpected response type, expected = %X, got = %X",
+			ErrValidate,
+			waitFor,
+			incoming.IAm(),
+		)
+	}
+
+	if !pendingAddr.IP.Equal(incomingAddr.IP) {
+		return fmt.Errorf(
+			"%w, got incorrect IP address, expected = %s, got = %s",
+			ErrValidate,
+			pendingAddr.IP,
+			incomingAddr.IP,
+		)
+	}
+
+	if pendingAddr.Port != incomingAddr.Port {
+		return fmt.Errorf(
+			"%w, got incorrent PORT, expected = %d, got = %d",
+			ErrValidate,
+			pendingAddr.Port,
+			incomingAddr.Port,
+		)
+	}
+
+	return nil
 }
 
 // consume wait for first message from packetCh or errCh and return
 // that comes first.
-func consume(packetCh chan []byte, errCh chan error) (Packet, error) {
+func consume(packetCh chan Packet, errCh chan error) (Packet, error) {
 	var (
-		packet    Packet
-		rawPacket []byte
-		err       error
+		packet Packet
+		err    error
 	)
 
 	select {
-	case rawPacket = <-packetCh:
-		packet, _, err = Unmarshal(rawPacket)
-		if err != nil {
-			return nil, err
-		}
+	case packet = <-packetCh:
 	case err = <-errCh:
 	}
 
