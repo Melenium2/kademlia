@@ -14,6 +14,7 @@ const (
 )
 
 type Packet interface {
+	GetRequestID() []byte
 	SetRequestID(id []byte)
 	Name() string
 	IAm() byte
@@ -25,6 +26,10 @@ type Ping struct {
 
 func (p *Ping) SetRequestID(id []byte) {
 	p.ReqID = id
+}
+
+func (p *Ping) GetRequestID() []byte {
+	return p.ReqID
 }
 
 func (p *Ping) Name() string {
@@ -43,6 +48,10 @@ type Pong struct {
 
 func (p *Pong) SetRequestID(id []byte) {
 	p.ReqID = id
+}
+
+func (p *Pong) GetRequestID() []byte {
+	return p.ReqID
 }
 
 func (p *Pong) Name() string {
