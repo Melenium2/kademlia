@@ -297,7 +297,9 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 
 	switch p := packet.(type) {
 	case *Ping:
-		t.handlePing(id, p, addr)
+		if err = t.handlePing(id, p, addr); err != nil {
+			t.log.Error(err.Error())
+		}
 	case *Pong:
 		if err = t.handlePong(id, p, addr); err != nil {
 			t.log.Error(err.Error())
@@ -308,7 +310,7 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 }
 
 // nolint:unused
-func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) {
+func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 	ip := addr.IP.To4()
 
 	pong := &Pong{
@@ -318,8 +320,10 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) {
 	}
 
 	if err := t.send(kademlia.NewIDFromSlice(id), pong, addr); err != nil {
-		t.log.Errorf("can not send pong back to ping request, request ID %s, reason %w", ping.ReqID, err)
+		return fmt.Errorf("can not send pong back to ping request, request ID %s, reason %w", ping.ReqID, err)
 	}
+
+	return nil
 }
 
 func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
