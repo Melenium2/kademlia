@@ -488,3 +488,44 @@ func TestTransport_HandlePong_Should_return_error_if_can_not_validate_incoming_p
 	err := transport.handlePong(kadeID.Bytes(), expectedPong, addr)
 	assert.Error(t, err)
 }
+
+func TestTransport_HandlePing_Should_send_response_with_pong_body(t *testing.T) {
+	var (
+		ping         = &Ping{ReqID: expectedPong.ReqID}
+		expectedBody = Marshal(kadeID.Bytes(), expectedPong)
+	)
+
+	internalFakeConn := &mocks.UDPConn{}
+	internalFakeConn.
+		On("WriteToUDP", expectedBody, addr).
+		Return(len(expectedBody), nil).
+		Once()
+
+	transport := Transport{
+		conn: internalFakeConn,
+	}
+
+	err := transport.handlePing(kadeID.Bytes(), ping, addr)
+	assert.NoError(t, err)
+}
+
+func TestTransport_HandlePing_Should_return_error_if_can_not_write_to_connection(t *testing.T) {
+	var (
+		ping         = &Ping{ReqID: expectedPong.ReqID}
+		expectedBody = Marshal(kadeID.Bytes(), expectedPong)
+	)
+
+	internalFakeConn := &mocks.UDPConn{}
+	internalFakeConn.
+		On("WriteToUDP", expectedBody, addr).
+		Return(0, io.ErrClosedPipe).
+		Once()
+
+	transport := Transport{
+		log:  logger.GetLogger(),
+		conn: internalFakeConn,
+	}
+
+	err := transport.handlePing(kadeID.Bytes(), ping, addr)
+	assert.Error(t, err)
+}
