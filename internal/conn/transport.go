@@ -299,10 +299,14 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	case *Ping:
 		if err = t.handlePing(id, p, addr); err != nil {
 			t.log.Error(err.Error())
+
+			return
 		}
 	case *Pong:
 		if err = t.handlePong(id, p, addr); err != nil {
 			t.log.Error(err.Error())
+
+			return
 		}
 	}
 
