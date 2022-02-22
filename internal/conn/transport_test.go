@@ -12,13 +12,18 @@ import (
 	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
+	addr = &net.UDPAddr{
+		IP:   net.IPv4(1, 1, 1, 1),
+		Port: 5222,
+	}
 	expectedPong = &Pong{
 		ReqID: []byte("13123123"),
-		IP:    net.IPv4(1, 1, 1, 1),
-		Port:  5222,
+		IP:    addr.IP,
+		Port:  uint16(addr.Port),
 	}
 )
 
@@ -391,4 +396,95 @@ func TestValidateIncomingPacket(t *testing.T) {
 			assert.ErrorIs(t, err, tc.expected)
 		})
 	}
+}
+
+var kadeID = kademlia.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+
+func TestTransport_HandlePong_Should_find_pending_call_and_send_incoming_packet_res_channel(t *testing.T) {
+	rpcCall := &rpc{
+		requestID: []byte("13123123"),
+		self:      testNode,
+		request: &Ping{
+			ReqID: []byte("13123123"),
+		},
+		resCh: make(chan Packet, 1),
+	}
+
+	transport := Transport{
+		pendingCalls: make(map[kademlia.ID]*rpc),
+	}
+	transport.pendingCalls[kadeID] = rpcCall
+
+	err := transport.handlePong(kadeID.Bytes(), expectedPong, addr)
+	require.NoError(t, err)
+
+	packet := <-rpcCall.resCh
+	assert.Equal(t, expectedPong, packet.(*Pong))
+}
+
+func TestTransport_HandlePong_Should_cancel_call_with_error_if_time_is_out(t *testing.T) {
+	rpcCall := &rpc{
+		requestID: []byte("13123123"),
+		self:      testNode,
+		request: &Ping{
+			ReqID: []byte("13123123"),
+		},
+		resCh: make(chan Packet, 1),
+		errCh: make(chan error, 1),
+	}
+
+	transport := Transport{
+		pendingCalls: make(map[kademlia.ID]*rpc),
+	}
+	transport.pendingCalls[kadeID] = rpcCall
+
+	err := transport.handlePong(kadeID.Bytes(), expectedPong, addr)
+	require.NoError(t, err)
+
+	time.Sleep(time.Millisecond * 1200)
+
+	err = <-rpcCall.errCh
+	assert.Error(t, err)
+}
+
+func TestTransport_HandlePong_Should_return_error_if_can_node_find_rpc_call_by_id(t *testing.T) {
+	newID := kademlia.ID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+
+	rpcCall := &rpc{
+		requestID: []byte("13123123"),
+		self:      testNode,
+		request: &Ping{
+			ReqID: []byte("13123123"),
+		},
+		resCh: make(chan Packet, 1),
+		errCh: make(chan error, 1),
+	}
+
+	transport := Transport{
+		pendingCalls: make(map[kademlia.ID]*rpc),
+	}
+	transport.pendingCalls[kadeID] = rpcCall
+
+	err := transport.handlePong(newID.Bytes(), expectedPong, addr)
+	assert.Error(t, err)
+}
+
+func TestTransport_HandlePong_Should_return_error_if_can_not_validate_incoming_packet(t *testing.T) {
+	rpcCall := &rpc{
+		requestID: []byte("13123123"),
+		self:      testNode,
+		request: &Ping{
+			ReqID: []byte("wrong request id"),
+		},
+		resCh: make(chan Packet, 1),
+		errCh: make(chan error, 1),
+	}
+
+	transport := Transport{
+		pendingCalls: make(map[kademlia.ID]*rpc),
+	}
+	transport.pendingCalls[kadeID] = rpcCall
+
+	err := transport.handlePong(kadeID.Bytes(), expectedPong, addr)
+	assert.Error(t, err)
 }

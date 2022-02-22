@@ -204,7 +204,7 @@ func (t *Transport) sendNext(call *rpc) error {
 }
 
 func (t *Transport) send(fromID kademlia.ID, req Packet, addr *net.UDPAddr) error {
-	body := Marshal(fromID[:], req)
+	body := Marshal(fromID.Bytes(), req)
 
 	_, err := t.conn.WriteToUDP(body, addr)
 	if err != nil {
@@ -230,6 +230,8 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO dont forrget to cacnel timeout
 
 	pong, ok := packet.(*Pong)
 	if !ok {
@@ -297,7 +299,9 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	case *Ping:
 		t.handlePing(id, p, addr)
 	case *Pong:
-		t.handlePong(id, p, addr)
+		if err = t.handlePong(id, p, addr); err != nil {
+			t.log.Error(err.Error())
+		}
 	}
 
 	t.log.Warnf("got unknown packet type %+v", packet)
@@ -318,13 +322,12 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) {
 	}
 }
 
-// nolint:unused
-func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) {
+func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 	kadeID := kademlia.NewIDFromSlice(id)
 
 	pc, ok := t.pendingCalls[kadeID]
 	if !ok {
-		t.log.Errorf("node with arrived ID not found, got wrong ID")
+		return fmt.Errorf("node with arrived ID not found, got wrong ID")
 	}
 
 	selfAddr := &net.UDPAddr{
@@ -333,12 +336,14 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) {
 	}
 
 	if err := validateIncomingPacket(PongMessage, pc.request, pong, selfAddr, addr); err != nil {
-		t.log.Error(err.Error())
+		return err
 	}
 
 	pc.ApplyTimeout(Timeout)
 
 	pc.resCh <- pong
+
+	return nil
 }
 
 func validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr) error {
