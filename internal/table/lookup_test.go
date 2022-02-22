@@ -3,6 +3,7 @@ package table
 import (
 	"errors"
 	"io"
+	"net"
 	"sort"
 	"testing"
 
@@ -16,7 +17,11 @@ import (
 )
 
 func randomNode() *node.Node {
-	newNode := kademlia.NewNode()
+	addr := &net.UDPAddr{
+		IP:   net.IPv4(1, 1, 1, 1),
+		Port: 5222,
+	}
+	newNode := kademlia.NewNode(addr)
 
 	return node.WrapNode(newNode)
 }

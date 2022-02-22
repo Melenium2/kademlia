@@ -83,7 +83,7 @@ func TestTransport_PruneCall_Should_retrieve_all_items_from_rpc_channels_and_the
 
 var (
 	testNode = &node.Node{
-		Node: kademlia.NewNode(),
+		Node: kademlia.NewNode(addr),
 	}
 )
 
@@ -110,17 +110,17 @@ var (
 	testCall = &rpc{
 		requestID: nil,
 		self: &node.Node{
-			Node: kademlia.NewNode(),
+			Node: kademlia.NewNode(addr),
 		},
 		request: expectedPong,
 	}
 	id       = testCall.self.ID()
 	fakeConn = func() UDPConn {
-		testbody := Marshal(id[:], testCall.request)
+		testbody := Marshal(id.Bytes(), testCall.request)
 
 		fake := mocks.UDPConn{}
 		fake.
-			On("WriteToUDP", testbody, &net.UDPAddr{}).
+			On("WriteToUDP", testbody, addr).
 			Return(0, nil)
 
 		return &fake
@@ -141,7 +141,7 @@ func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *
 
 	fakeConn := mocks.UDPConn{}
 	fakeConn.
-		On("WriteToUDP", body, &net.UDPAddr{}).
+		On("WriteToUDP", body, addr).
 		Return(0, io.ErrClosedPipe)
 
 	transport := Transport{

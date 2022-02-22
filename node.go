@@ -28,18 +28,20 @@ func (id *ID) String() string {
 
 type Node struct {
 	id  ID
-	ip  net.IP // nolint:unused,structcheck
+	ip  net.IP
 	udp int
 }
 
-func NewNode() *Node {
+func NewNode(addr *net.UDPAddr) *Node {
 	id, err := GenerateID()
 	if err != nil {
 		logger.GetLogger().Fatal(err.Error())
 	}
 
 	return &Node{
-		id: id,
+		id:  id,
+		ip:  addr.IP,
+		udp: addr.Port,
 	}
 }
 
@@ -47,9 +49,8 @@ func (n *Node) ID() ID {
 	return n.id
 }
 
-// TODO unimplemented.
 func (n *Node) IP() net.IP {
-	return nil
+	return n.ip
 }
 
 func (n *Node) UDPPort() int {
