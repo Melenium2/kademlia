@@ -3,6 +3,7 @@ package conn
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -208,7 +209,7 @@ func (t *Transport) send(fromID kademlia.ID, req Packet, addr *net.UDPAddr) erro
 
 	_, err := t.conn.WriteToUDP(body, addr)
 	if err != nil {
-		t.log.Warnf("can not sendNext body: %s, to udp socket %s", body, addr.String())
+		t.log.Warnf("can not send body: \n%s to udp socket %s", hex.Dump(body), addr.String())
 
 		return err
 	}
@@ -308,9 +309,9 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 
 			return
 		}
+	default:
+		t.log.Warnf("got unknown packet type %+v", packet)
 	}
-
-	t.log.Warnf("got unknown packet type %+v", packet)
 }
 
 // nolint:unused
