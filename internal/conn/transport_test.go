@@ -529,3 +529,75 @@ func TestTransport_HandlePing_Should_return_error_if_can_not_write_to_connection
 	err := transport.handlePing(kadeID.Bytes(), ping, addr)
 	assert.Error(t, err)
 }
+
+func TestTransport_HandleNetworkPacket_Should_unmarshal_ping_and_handle_it_without_error(t *testing.T) {
+	var (
+		ping = &Ping{
+			ReqID: expectedPong.ReqID,
+		}
+		incomingBody = Marshal(id.Bytes(), ping)
+	)
+
+	transport := Transport{
+		conn: fakeConn(),
+	}
+
+	transport.handleNetworkPacket(incomingBody, addr)
+}
+
+func TestTransport_HandleNetworkPacket_Should_return_error_from_handling_ping_function_if_can_not_send_response_back(t *testing.T) {
+	var (
+		ping = &Ping{
+			ReqID: expectedPong.ReqID,
+		}
+		incomingBody = Marshal(id.Bytes(), ping)
+		expectedBody = Marshal(id.Bytes(), expectedPong)
+	)
+
+	internalFakeConn := &mocks.UDPConn{}
+	internalFakeConn.
+		On("WriteToUDP", expectedBody, addr).
+		Return(0, io.ErrClosedPipe).
+		Once()
+
+	transport := Transport{
+		log:  logger.GetLogger(),
+		conn: internalFakeConn,
+	}
+
+	transport.handleNetworkPacket(incomingBody, addr)
+}
+
+func TestTransport_HandleNetworkPacket_Should_unmarshal_pong_message_and_handle_it_then_send_message_to_result_channel_of_rpc_call(t *testing.T) {
+	var (
+		rpcCall = &rpc{
+			requestID: []byte("13123123"),
+			self:      testNode,
+			request: &Ping{
+				ReqID: []byte("13123123"),
+			},
+			resCh: make(chan Packet, 1),
+		}
+		incomingBody = Marshal(kadeID.Bytes(), expectedPong)
+	)
+
+	transport := Transport{
+		pendingCalls: make(map[kademlia.ID]*rpc),
+	}
+	transport.pendingCalls[kadeID] = rpcCall
+
+	transport.handleNetworkPacket(incomingBody, addr)
+}
+
+func TestTransport_HandleNetworkPacket_Should_return_error_while_processing_packet_because_this_rpc_call_was_unexpected(t *testing.T) {
+	var (
+		incomingBody = Marshal(kadeID.Bytes(), expectedPong)
+	)
+
+	transport := Transport{
+		log:          logger.GetLogger(),
+		pendingCalls: make(map[kademlia.ID]*rpc),
+	}
+
+	transport.handleNetworkPacket(incomingBody, addr)
+}
