@@ -204,6 +204,8 @@ func (t *Transport) sendNext(call *rpc) error {
 	return nil
 }
 
+// send convert provided packet to raw bytes and send by the UDP connection to provided
+// address.
 func (t *Transport) send(fromID kademlia.ID, req Packet, addr *net.UDPAddr) error {
 	body := Marshal(fromID.Bytes(), req)
 
@@ -264,6 +266,11 @@ func (t *Transport) pruneCall(rpc *rpc) {
 	t.cancelCallCh <- rpc
 }
 
+// readFromNetwork starts reading cycle from UDP network, and handles
+// each incoming frame. Max size of incoming frame is equals to MaxMessageSize.
+//
+// readFromNetwork is blocking thread. For closing this function you must
+// cancel the provided context.
 func (t *Transport) readFromNetwork(ctx context.Context) {
 	buf := make([]byte, MaxMessageSize)
 
@@ -286,6 +293,10 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 	}
 }
 
+// handleNetworkPacket handles each incoming packet.
+//
+// If function can not unmarshal raw bytes to the packet, the error will be logged.
+// Another case where error will be logged, if type of packet unknown.
 func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	packet, id, err := Unmarshal(body)
 	if err != nil {
@@ -310,6 +321,7 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	}
 }
 
+// handlePing message and response with pong message to the sender.
 func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 	ip := addr.IP.To4()
 
@@ -326,6 +338,7 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 	return nil
 }
 
+// handlePong message and validate it. If message is valid, then trying to complete rpc call.
 func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 	kadeID := kademlia.NewIDFromSlice(id)
 
@@ -350,6 +363,7 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 	return nil
 }
 
+// validateIncomingPacket compare RequestID, Type, IP and Port of two packets, if all right then return nothing.
 func validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr) error {
 	if !bytes.Equal(pending.GetRequestID(), incoming.GetRequestID()) {
 		return fmt.Errorf(
