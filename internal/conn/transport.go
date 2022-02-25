@@ -119,6 +119,8 @@ func NewTransport(conn UDPConn) *Transport {
 //
 // If you needed to close cycle, you need juts cancel provided context.
 func (t *Transport) Loop(ctx context.Context) error {
+	go t.readFromNetwork(ctx)
+
 	for {
 		select {
 		case nextCall := <-t.nextCallCh:
