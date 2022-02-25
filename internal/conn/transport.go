@@ -232,8 +232,6 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 		return nil, err
 	}
 
-	// TODO dont forrget to cacnel timeout
-
 	pong, ok := packet.(*Pong)
 	if !ok {
 		// this case should be never executed.
