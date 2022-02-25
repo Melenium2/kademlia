@@ -18,7 +18,7 @@ const (
 
 )
 
-type BucketPersistenceStore interface {
+type BucketStorage interface {
 }
 
 type Config struct {
@@ -33,12 +33,12 @@ type bucket struct {
 
 // nolint:structcheck,unused
 type Table struct {
-	store   BucketPersistenceStore
+	store   BucketStorage
 	buckets []*bucket
 	self    *node.Node
 }
 
-func NewTable(cfg *Config, db BucketPersistenceStore, kadenode *kademlia.Node) *Table {
+func NewTable(cfg *Config, db BucketStorage, kadenode *kademlia.Node) *Table {
 	return &Table{
 		store: db,
 		self:  node.WrapNode(kadenode),
