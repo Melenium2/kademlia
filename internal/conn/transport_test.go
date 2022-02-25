@@ -601,3 +601,60 @@ func TestTransport_HandleNetworkPacket_Should_return_error_while_processing_pack
 
 	transport.handleNetworkPacket(incomingBody, addr)
 }
+
+var (
+	nodeAddr = &net.UDPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 11503,
+	}
+	reqAddr = &net.UDPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 11504,
+		Zone: "",
+	}
+	testping = &Ping{
+		ReqID: expectedPong.ReqID,
+	}
+	testpong = &Pong{
+		ReqID: expectedPong.ReqID,
+		IP:    reqAddr.IP,
+		Port:  uint16(reqAddr.Port),
+	}
+	incomingBody = Marshal(id.Bytes(), testping)
+	resultPong   = Marshal(id.Bytes(), testpong)
+)
+
+func TestTransport_ReadFromNetwork_Should_read_and_process_ping_packet_then_close_with_context(t *testing.T) {
+	buf := make([]byte, 1024)
+
+	// start listening port.
+	conn, err := net.ListenUDP("udp", nodeAddr)
+	require.NoError(t, err)
+
+	defer conn.Close()
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	transport := Transport{
+		log:  logger.GetLogger(),
+		conn: conn,
+	}
+
+	// run read cycle.
+	go transport.readFromNetwork(ctx)
+
+	// create new udp "client".
+	udpConn, err := net.DialUDP("udp", reqAddr, nodeAddr)
+	require.NoError(t, err)
+
+	defer udpConn.Close()
+
+	// send ping to node.
+	_, err = udpConn.Write(incomingBody)
+	require.NoError(t, err)
+
+	n, err := udpConn.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, resultPong, buf[:n])
+
+	cancelFunc()
+}
