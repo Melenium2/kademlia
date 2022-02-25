@@ -266,7 +266,6 @@ func (t *Transport) pruneCall(rpc *rpc) {
 	t.cancelCallCh <- rpc
 }
 
-// nolint:unused
 func (t *Transport) readFromNetwork(ctx context.Context) {
 	buf := make([]byte, MaxMessageSize)
 
@@ -289,7 +288,6 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 	}
 }
 
-// nolint:unused
 func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	packet, id, err := Unmarshal(body)
 	if err != nil {
@@ -314,7 +312,6 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	}
 }
 
-// nolint:unused
 func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 	ip := addr.IP.To4()
 
