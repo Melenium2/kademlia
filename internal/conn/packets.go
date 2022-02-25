@@ -11,6 +11,7 @@ import (
 const (
 	PingMessage byte = iota + 1
 	PongMessage
+	FindNodesMessage
 )
 
 type Packet interface {
@@ -60,6 +61,27 @@ func (p *Pong) Name() string {
 
 func (p *Pong) IAm() byte {
 	return PongMessage
+}
+
+type FindNodes struct {
+	ReqID     []byte
+	Distances []uint
+}
+
+func (fn *FindNodes) SetRequestID(id []byte) {
+	fn.ReqID = id
+}
+
+func (fn *FindNodes) GetRequestID() []byte {
+	return fn.ReqID
+}
+
+func (fn *FindNodes) Name() string {
+	return "FIND_NODE"
+}
+
+func (fn *FindNodes) IAm() byte {
+	return FindNodesMessage
 }
 
 func GenerateReqID() []byte {
@@ -116,6 +138,8 @@ func Unmarshal(raw []byte) (Packet, []byte, error) {
 		packet = &Ping{}
 	case PongMessage:
 		packet = &Pong{}
+	case FindNodesMessage:
+		packet = &FindNodes{}
 	}
 
 	if err := json.Unmarshal(body, &packet); err != nil {
