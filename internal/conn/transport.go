@@ -245,6 +245,18 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	return pong, nil
 }
 
+func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, error) {
+	var (
+		reqID = GenerateReqID()
+		req   = &FindNodes{ReqID: reqID, Distances: distances}
+	)
+
+	removeCall := t.call(reqID, node, req)
+	_ = removeCall
+
+	return nil, nil
+}
+
 // call creates new rpc message and pass it to queue.
 func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
 	remoteCall := newRPC(reqID, node, req)
