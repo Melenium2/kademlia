@@ -12,6 +12,7 @@ import (
 	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -126,7 +127,9 @@ var (
 		fake := mocks.UDPConn{}
 		fake.
 			On("WriteToUDP", testbody, addr).
-			Return(0, nil)
+			Return(0, nil).
+			On("ReadFromUDP", mock.IsType([]byte{})).
+			Return(0, nil, net.ErrClosed)
 
 		return &fake
 	}
