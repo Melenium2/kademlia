@@ -279,7 +279,7 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 		default:
 			n, addr, err := t.conn.ReadFromUDP(buf)
 			if err != nil {
-				t.log.Errorf("UDP read error, closing for read network cycle, reason %w", err)
+				t.log.Errorf("UDP read error, closing for read network cycle, reason %s", err)
 
 				return
 			}
