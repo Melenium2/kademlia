@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	Timeout        = 1 * time.Second
-	MaxMessageSize = 1000
+	Timeout                = 1 * time.Second
+	MaxMessageSize         = 1000
+	TotalNodesPacketsLimit = 5
 )
 
 type UDPConn interface {
@@ -251,10 +252,65 @@ func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, e
 		req   = &FindNodes{ReqID: reqID, Distances: distances}
 	)
 
-	removeCall := t.call(reqID, node, req)
-	_ = removeCall
+	remoteCall := t.call(reqID, node, req)
+	defer t.pruneCall(remoteCall)
 
-	return nil, nil
+	return t.consumeNodes(remoteCall, distances)
+}
+
+func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, error) {
+	var (
+		nodes           []*node.Node
+		seen            map[kademlia.ID]struct{}
+		err             error
+		received, total = 0, -1
+	)
+
+	for {
+		select {
+		case packet := <-call.resCh:
+			packetNodes, ok := packet.(*NodesList)
+			if !ok {
+				return nil, fmt.Errorf("can not consume messages, reason %w", ErrWrongMessageType)
+			}
+
+			if total == -1 {
+				total = min(int(packetNodes.Count), TotalNodesPacketsLimit)
+			}
+
+			for _, nextNode := range packetNodes.Nodes {
+				id := nextNode.ID()
+
+				if err = t.validateNode(call.self.ID(), id, distances); err != nil {
+					t.log.Warnf("node with ID %d is invalid, reason %w", id.Bytes(), err)
+
+					continue
+				}
+
+				if _, ok = seen[id]; ok {
+					t.log.Warnf("got duplicate record with ID %s, IP %s", hex.EncodeToString(id.Bytes()), nextNode.IP())
+
+					continue
+				}
+			}
+
+			if received++; received == total {
+				return nodes, nil
+			}
+		case err = <-call.errCh:
+			return nodes, err
+		}
+	}
+}
+
+func (t *Transport) validateNode(self, incoming kademlia.ID, distance []uint) error {
+	// todo check that node is valid connection target. We need to check IP and Port.
+	logDistance := node.LogDistance(self, incoming)
+	if !containsUint(uint(logDistance), distance) {
+		return ErrNotMatchAnyDistance
+	}
+
+	return nil
 }
 
 // call creates new rpc message and pass it to queue.
@@ -378,7 +434,9 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 }
 
 // validateIncomingPacket compare RequestID, Type, IP and Port of two packets, if all right then return nothing.
-func (t *Transport) validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr) error {
+func (t *Transport) validateIncomingPacket(
+	waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr,
+) error {
 	if !bytes.Equal(pending.GetRequestID(), incoming.GetRequestID()) {
 		return fmt.Errorf(
 			"%w, request ID of found node (%s) not equals to incoming request ID (%s)",
@@ -432,4 +490,22 @@ func (t *Transport) consume(packetCh chan Packet, errCh chan error) (Packet, err
 	}
 
 	return packet, err
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func containsUint(target uint, ar []uint) bool {
+	for i := 0; i < len(ar); i++ {
+		if ar[i] == target {
+			return true
+		}
+	}
+
+	return false
 }
