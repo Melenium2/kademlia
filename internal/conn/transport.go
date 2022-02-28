@@ -231,7 +231,7 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	remoteCall := t.call(reqID, node, req)
 	defer t.pruneCall(remoteCall)
 
-	packet, err := consume(remoteCall.resCh, remoteCall.errCh)
+	packet, err := t.consume(remoteCall.resCh, remoteCall.errCh)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +366,7 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 		Port: pc.self.UDPPort(),
 	}
 
-	if err := validateIncomingPacket(PongMessage, pc.request, pong, selfAddr, addr); err != nil {
+	if err := t.validateIncomingPacket(PongMessage, pc.request, pong, selfAddr, addr); err != nil {
 		return err
 	}
 
@@ -378,7 +378,7 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 }
 
 // validateIncomingPacket compare RequestID, Type, IP and Port of two packets, if all right then return nothing.
-func validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr) error {
+func (t *Transport) validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr, incomingAddr *net.UDPAddr) error {
 	if !bytes.Equal(pending.GetRequestID(), incoming.GetRequestID()) {
 		return fmt.Errorf(
 			"%w, request ID of found node (%s) not equals to incoming request ID (%s)",
@@ -420,7 +420,7 @@ func validateIncomingPacket(waitFor byte, pending, incoming Packet, pendingAddr,
 
 // consume wait for first message from packetCh or errCh and return
 // that comes first.
-func consume(packetCh chan Packet, errCh chan error) (Packet, error) {
+func (t *Transport) consume(packetCh chan Packet, errCh chan error) (Packet, error) {
 	var (
 		packet Packet
 		err    error

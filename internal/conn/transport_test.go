@@ -39,7 +39,9 @@ func TestConsume_Should_consume_new_packet_from_result_channel(t *testing.T) {
 		packetCh <- expectedPong
 	}()
 
-	packet, err := consume(packetCh, errCh)
+	transport := &Transport{}
+
+	packet, err := transport.consume(packetCh, errCh)
 	assert.NoError(t, err)
 
 	pong, ok := packet.(*Pong)
@@ -58,7 +60,9 @@ func TestConsume_Should_got_error_while_waiting_for_new_packet(t *testing.T) {
 		errCh <- io.ErrClosedPipe
 	}()
 
-	_, err := consume(packetCh, errCh)
+	transport := &Transport{}
+
+	_, err := transport.consume(packetCh, errCh)
 	assert.Error(t, err)
 	assert.Equal(t, io.ErrClosedPipe, err)
 }
@@ -395,7 +399,9 @@ func TestValidateIncomingPacket(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateIncomingPacket(tc.waitFor, tc.pending, tc.incoming, tc.pendAddr, tc.incAddr)
+			transport := &Transport{}
+
+			err := transport.validateIncomingPacket(tc.waitFor, tc.pending, tc.incoming, tc.pendAddr, tc.incAddr)
 			assert.ErrorIs(t, err, tc.expected)
 		})
 	}
