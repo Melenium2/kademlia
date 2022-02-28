@@ -1,6 +1,7 @@
 package node
 
 import (
+	"math/bits"
 	"net"
 
 	"github.com/Melenium2/kademlia"
@@ -39,4 +40,24 @@ func DistanceCmp(self, a, b kademlia.ID) int {
 	}
 
 	return 0
+}
+
+// LogDistance returns the logarithmic distance between a and b, log2(a ^ b).
+func LogDistance(a, b kademlia.ID) int {
+	// leading zeros
+	lz := 0
+
+	for i := range a {
+		x := a[i] ^ b[i]
+
+		if x == 0 {
+			lz += 8
+		} else {
+			lz += bits.LeadingZeros8(x)
+
+			break
+		}
+	}
+
+	return len(a)*8 - lz
 }
