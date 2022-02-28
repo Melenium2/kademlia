@@ -6,12 +6,15 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"net"
+
+	"github.com/Melenium2/kademlia/internal/table/node"
 )
 
 const (
 	PingMessage byte = iota + 1
 	PongMessage
 	FindNodesMessage
+	NodesListMessage
 )
 
 type Packet interface {
@@ -84,6 +87,28 @@ func (fn *FindNodes) IAm() byte {
 	return FindNodesMessage
 }
 
+type NodesList struct {
+	ReqID []byte
+	Count uint8
+	Nodes []*node.Node
+}
+
+func (fn *NodesList) SetRequestID(id []byte) {
+	fn.ReqID = id
+}
+
+func (fn *NodesList) GetRequestID() []byte {
+	return fn.ReqID
+}
+
+func (fn *NodesList) Name() string {
+	return "NODES_LIST"
+}
+
+func (fn *NodesList) IAm() byte {
+	return NodesListMessage
+}
+
 func GenerateReqID() []byte {
 	// TODO mb move ID len to cons
 	reqID := make([]byte, 8) // nolint:gomnd
@@ -140,6 +165,8 @@ func Unmarshal(raw []byte) (Packet, []byte, error) {
 		packet = &Pong{}
 	case FindNodesMessage:
 		packet = &FindNodes{}
+	case NodesListMessage:
+		packet = &NodesList{}
 	}
 
 	if err := json.Unmarshal(body, &packet); err != nil {
