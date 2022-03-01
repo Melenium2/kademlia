@@ -292,6 +292,8 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 
 					continue
 				}
+
+				seen[id] = struct{}{}
 			}
 
 			if received++; received == total {
