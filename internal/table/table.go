@@ -50,3 +50,4 @@ func (t *Table) Discover() {}
 // TODO we can start implement protocol from doRefresh function
 // http://xlattice.sourceforge.net/components/protocol/kademlia/specs.html#implementation
 // https://en.wikipedia.org/wiki/Kademlia
+// https://codethechange.stanford.edu/guides/guide_kademlia.html
