@@ -167,7 +167,7 @@ func TestTransport_Send_Should_return_error_if_can_not_send_body_to_udp_conn(t *
 }
 
 func TestTransport_RemoveFromPending_Should_remove_rpc_call_with_provided_id_from_local_state(t *testing.T) {
-	transport := NewTransport(nil)
+	transport := NewTransport(nil, nil)
 	transport.pendingCalls[id] = testCall
 
 	transport.removeFromPending(id)
@@ -176,7 +176,7 @@ func TestTransport_RemoveFromPending_Should_remove_rpc_call_with_provided_id_fro
 }
 
 func TestTransport_NextPending_Should_send_next_pending_call_and_remove_it_from_queue(t *testing.T) {
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 
 	transport.callQueue[id] = append(transport.callQueue[id], testCall)
 
@@ -188,7 +188,7 @@ func TestTransport_NextPending_Should_send_next_pending_call_and_remove_it_from_
 }
 
 func TestTransport_NextPending_Should_send_next_pending_call_but_in_queue_should_stay_one_more(t *testing.T) {
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 
 	transport.callQueue[id] = append(transport.callQueue[id], testCall, testCall)
 
@@ -200,7 +200,7 @@ func TestTransport_NextPending_Should_send_next_pending_call_but_in_queue_should
 }
 
 func TestTransport_NextPending_Should_return_from_func_if_call_queue_is_empty(t *testing.T) {
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 
 	transport.nextPending(id)
 
@@ -211,7 +211,7 @@ func TestTransport_NextPending_Should_return_from_func_if_call_queue_is_empty(t 
 func TestTransport_NextPending_Should_return_from_func_if_queue_by_provided_id_is_empty(t *testing.T) {
 	anotherID, _ := kademlia.GenerateID()
 
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 	transport.callQueue[anotherID] = append(transport.callQueue[anotherID], testCall)
 
 	transport.nextPending(id)
@@ -222,7 +222,7 @@ func TestTransport_NextPending_Should_return_from_func_if_queue_by_provided_id_i
 }
 
 func TestTransport_NextPending_Should_return_from_second_func_because_rpc_call_with_provided_id_already_in_pending_state(t *testing.T) {
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 
 	transport.callQueue[id] = append(transport.callQueue[id], testCall)
 
@@ -236,7 +236,7 @@ func TestTransport_NextPending_Should_return_from_second_func_because_rpc_call_w
 
 func TestTransport_Loop_Should_receive_new_call_and_add_it_to_call_queue(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 
 	go func() {
 		err := transport.Loop(ctx)
@@ -266,7 +266,7 @@ func TestTransport_Loop_Should_receive_new_call_and_add_it_to_call_queue(t *test
 
 func TestTransport_Loop_Should_receive_cancel_call_message_and_remove_last_pending_call_from_store(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 	transport.pendingCalls[id] = testCall
 
 	go func() {
@@ -294,7 +294,7 @@ func TestTransport_Loop_Should_receive_cancel_call_message_and_remove_last_pendi
 
 func TestTransport_Loop_Should_close_read_cycle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	transport := NewTransport(fakeConn())
+	transport := NewTransport(fakeConn(), nil)
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -666,4 +666,33 @@ func TestTransport_ReadFromNetwork_Should_read_and_process_ping_packet_then_clos
 	require.Equal(t, resultPong, buf[:n])
 
 	cancelFunc()
+}
+
+func TestTransport_ValidateNode(t *testing.T) {
+	var tt = []struct {
+		name      string
+		self      kademlia.ID
+		incoming  kademlia.ID
+		distances []uint
+		expected  error
+	}{
+		{
+			name:      "",
+			self:      kademlia.ID{},
+			incoming:  kademlia.ID{},
+			distances: nil,
+		},
+	}
+
+	t.Parallel()
+
+	for _, tc := range tt {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			transport := Transport{}
+
+			err := transport.validateNode(tc.self, tc.incoming, tc.distances)
+			assert.ErrorIs(t, err, tc.expected)
+		})
+	}
 }
