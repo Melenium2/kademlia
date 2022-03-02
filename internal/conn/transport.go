@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Melenium2/kademlia"
+	"github.com/Melenium2/kademlia/internal/kbuckets"
 	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
@@ -25,6 +26,10 @@ type UDPConn interface {
 	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
 	Close() error
 	LocalAddr() net.Addr
+}
+
+type KBuckets interface {
+	BucketAtDistance(dist int) *kbuckets.Bucket
 }
 
 type rpc struct {
@@ -87,8 +92,9 @@ func newRPC(reqID []byte, self *node.Node, request Packet) *rpc {
 // nodes in network.
 type Transport struct {
 	// Established udp connection.
-	conn UDPConn
-	log  logger.Logger
+	conn  UDPConn
+	store KBuckets
+	log   logger.Logger
 
 	// Messages queue we need to sendNext.
 	callQueue map[kademlia.ID][]*rpc
@@ -103,9 +109,10 @@ type Transport struct {
 }
 
 // NewTransport create instance of Transport.
-func NewTransport(conn UDPConn) *Transport {
+func NewTransport(conn UDPConn, store KBuckets) *Transport {
 	return &Transport{
 		conn:         conn,
+		store:        store,
 		log:          logger.GetLogger(),
 		callQueue:    make(map[kademlia.ID][]*rpc),
 		pendingCalls: make(map[kademlia.ID]*rpc),
