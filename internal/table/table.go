@@ -2,6 +2,7 @@ package table
 
 import (
 	"github.com/Melenium2/kademlia"
+	"github.com/Melenium2/kademlia/internal/kbuckets"
 	"github.com/Melenium2/kademlia/internal/table/node"
 )
 
@@ -34,14 +35,15 @@ type bucket struct {
 // nolint:structcheck,unused
 type Table struct {
 	store   BucketStorage
-	buckets []*bucket
+	buckets *kbuckets.KBuckets
 	self    *node.Node
 }
 
 func NewTable(cfg *Config, db BucketStorage, kadenode *kademlia.Node) *Table {
 	return &Table{
-		store: db,
-		self:  node.WrapNode(kadenode),
+		store:   db,
+		self:    node.WrapNode(kadenode),
+		buckets: kbuckets.New(BucketSize, bucketMinDistance),
 	}
 }
 
