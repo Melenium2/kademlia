@@ -61,3 +61,25 @@ func LogDistance(a, b kademlia.ID) int {
 
 	return len(a)*8 - lz
 }
+
+// DistancesBetween compute the distance parameter for FIND_NODE call.
+// It chooses distances adjacent to LogDistance(target, dest), e.g. for a target
+// with LogDistance(target, dest) = 255 the result is [255, 256, 254].
+func DistancesBetween(a, b kademlia.ID, limit int) []uint {
+	dist := make([]uint, 0)
+
+	targetDist := LogDistance(a, b)
+	dist = append(dist, uint(targetDist))
+
+	for i := 1; len(dist) < limit; i++ {
+		if targetDist+i < 256 {
+			dist = append(dist, uint(targetDist+i))
+		}
+
+		if targetDist > 0 {
+			dist = append(dist, uint(targetDist-i))
+		}
+	}
+
+	return dist
+}
