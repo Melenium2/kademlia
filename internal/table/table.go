@@ -12,10 +12,9 @@ const (
 	// BucketSize is Kademlia single bucket size.
 	BucketSize = 16
 
-	hashBits = len(kademlia.ID{}) * 8 // Length of hash in bits. Now this is length of SHA-1, 160 bits.
-	nBuckets = hashBits / 15          // Number of buckets.
-	// nolint:unused,deadcode,varcheck
-	bucketMinDistance = hashBits - nBuckets // Log distance of the closest bucket.
+	hashBits          = len(kademlia.ID{}) * 8 // Length of hash in bits. Now this is length of SHA-1, 160 bits.
+	nBuckets          = hashBits / 15          // Number of buckets.
+	bucketMinDistance = hashBits - nBuckets    // Log distance of the closest bucket.
 
 )
 
@@ -26,13 +25,6 @@ type Config struct {
 	BootNodes []*kademlia.Node
 }
 
-// nolint:unused,structcheck
-type bucket struct {
-	entries      []*node.Node // live entries, sorted by time of last ping.
-	replacements []*node.Node // if one of entries is dies, then we chose one from this list, if it is still available.
-}
-
-// nolint:structcheck,unused
 type Table struct {
 	store   BucketStorage
 	buckets *kbuckets.KBuckets
