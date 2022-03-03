@@ -668,6 +668,17 @@ func TestTransport_ReadFromNetwork_Should_read_and_process_ping_packet_then_clos
 	cancelFunc()
 }
 
+var (
+	id1 = kademlia.ID{
+		0x6F, 0xF7, 0x54, 0x41, 0xE2, 0x6D, 0x9D, 0xE0, 0xEA, 0x9A,
+		0xA7, 0x06, 0xBA, 0x14, 0x95, 0xCF, 0xBE, 0xB3, 0xD7, 0x87,
+	}
+	id2 = kademlia.ID{
+		0x47, 0xB3, 0x57, 0x03, 0x06, 0x9E, 0xFC, 0xC6, 0xC6, 0xF3,
+		0xAC, 0x28, 0x06, 0x52, 0x32, 0xDF, 0x0A, 0x3B, 0xD9, 0x17,
+	}
+)
+
 func TestTransport_ValidateNode(t *testing.T) {
 	var tt = []struct {
 		name      string
@@ -677,10 +688,18 @@ func TestTransport_ValidateNode(t *testing.T) {
 		expected  error
 	}{
 		{
-			name:      "",
-			self:      kademlia.ID{},
-			incoming:  kademlia.ID{},
-			distances: nil,
+			name:      "distance between self node and incoming node should exist inside distance slice",
+			self:      id1,
+			incoming:  id2,
+			distances: []uint{158, 159, 157},
+			expected:  nil,
+		},
+		{
+			name:      "distance between nodes not exists in slice",
+			self:      id1,
+			incoming:  id2,
+			distances: []uint{145, 146, 144},
+			expected:  ErrNotMatchAnyDistance,
 		},
 	}
 
