@@ -45,7 +45,7 @@ linters-settings:
     settings:
       mnd:
         checks: [argument,case,condition,operation,return,assign]
-        ignored-numbers: [2,3]
+        ignored-numbers: [2,3,256]
   stylecheck:
     go: "1.17"
     checks: ["all", "-ST1017"] # ST1017 - Yoda
