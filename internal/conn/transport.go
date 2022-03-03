@@ -268,7 +268,7 @@ func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, e
 func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, error) {
 	var (
 		nodes           []*node.Node
-		seen            map[kademlia.ID]struct{}
+		seen            = make(map[kademlia.ID]struct{})
 		err             error
 		received, total = 0, -1
 	)
