@@ -317,6 +317,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 				}
 
 				seen[id] = struct{}{}
+
 				nodes = append(nodes, nextNode)
 			}
 
