@@ -45,6 +45,14 @@ func NewNode(addr *net.UDPAddr) *Node {
 	}
 }
 
+func NewNodeWithID(id ID, addr *net.UDPAddr) *Node {
+	return &Node{
+		id:  id,
+		ip:  addr.IP,
+		udp: addr.Port,
+	}
+}
+
 func (n *Node) ID() ID {
 	return n.id
 }

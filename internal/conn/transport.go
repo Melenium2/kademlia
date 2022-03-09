@@ -253,6 +253,22 @@ func (t *Transport) SendPing(node *node.Node) (*Pong, error) {
 	return pong, nil
 }
 
+// consume wait for first message from packetCh or errCh and return
+// that comes first.
+func (t *Transport) consume(packetCh chan Packet, errCh chan error) (Packet, error) {
+	var (
+		packet Packet
+		err    error
+	)
+
+	select {
+	case packet = <-packetCh:
+	case err = <-errCh:
+	}
+
+	return packet, err
+}
+
 func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, error) {
 	var (
 		reqID = GenerateReqID()
@@ -289,7 +305,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 				id := nextNode.ID()
 
 				if err = t.validateNode(call.self.ID(), id, distances); err != nil {
-					t.log.Warnf("node with ID %d is invalid, reason %w", id.Bytes(), err)
+					t.log.Warnf("node with ID %d is invalid, reason %s", id.Bytes(), err)
 
 					continue
 				}
@@ -301,6 +317,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 				}
 
 				seen[id] = struct{}{}
+				nodes = append(nodes, nextNode)
 			}
 
 			if received++; received == total {
@@ -483,22 +500,6 @@ func (t *Transport) validateIncomingPacket(
 	}
 
 	return nil
-}
-
-// consume wait for first message from packetCh or errCh and return
-// that comes first.
-func (t *Transport) consume(packetCh chan Packet, errCh chan error) (Packet, error) {
-	var (
-		packet Packet
-		err    error
-	)
-
-	select {
-	case packet = <-packetCh:
-	case err = <-errCh:
-	}
-
-	return packet, err
 }
 
 func min(a, b int) int {

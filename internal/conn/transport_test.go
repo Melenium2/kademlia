@@ -2,6 +2,7 @@ package conn
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -677,6 +678,7 @@ var (
 		0x47, 0xB3, 0x57, 0x03, 0x06, 0x9E, 0xFC, 0xC6, 0xC6, 0xF3,
 		0xAC, 0x28, 0x06, 0x52, 0x32, 0xDF, 0x0A, 0x3B, 0xD9, 0x17,
 	}
+	distances = []uint{158, 159, 157}
 )
 
 func TestTransport_ValidateNode(t *testing.T) {
@@ -691,7 +693,7 @@ func TestTransport_ValidateNode(t *testing.T) {
 			name:      "distance between self node and incoming node should exist inside distance slice",
 			self:      id1,
 			incoming:  id2,
-			distances: []uint{158, 159, 157},
+			distances: distances,
 			expected:  nil,
 		},
 		{
@@ -714,4 +716,185 @@ func TestTransport_ValidateNode(t *testing.T) {
 			assert.ErrorIs(t, err, tc.expected)
 		})
 	}
+}
+
+var id3 = kademlia.ID{
+	0x03, 0xD0, 0xE3, 0x2E, 0x96, 0x30, 0x10, 0x96, 0x64, 0xC8,
+	0x2E, 0x49, 0xA6, 0x7F, 0x80, 0x15, 0x25, 0x08, 0x17, 0x78,
+}
+
+func TestTransport_ConsumeNode_Should_receive_all_nodes_with_two_incoming_packets(t *testing.T) {
+	transport := Transport{
+		log: logger.GetLogger(),
+	}
+
+	rpcCall := &rpc{
+		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		resCh: make(chan Packet, 1),
+	}
+
+	reqID := []byte("1111")
+	expectedNodes := []*node.Node{
+		node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
+		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	}
+	nodesList := &NodesList{
+		ReqID: reqID,
+		Count: 2,
+		Nodes: expectedNodes,
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		rpcCall.resCh <- nodesList
+		time.Sleep(100 * time.Millisecond)
+		rpcCall.resCh <- nodesList
+	}()
+
+	nodes, err := transport.consumeNodes(rpcCall, distances)
+	require.NoError(t, err)
+	assert.Equal(t, expectedNodes, nodes)
+}
+
+func TestTransport_ConsumeNodes_Should_return_error_if_got_wrong_message_type(t *testing.T) {
+	transport := Transport{
+		log: logger.GetLogger(),
+	}
+
+	rpcCall := &rpc{
+		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		resCh: make(chan Packet, 1),
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		rpcCall.resCh <- testpong
+	}()
+
+	_, err := transport.consumeNodes(rpcCall, distances)
+	assert.Error(t, err)
+}
+
+func TestTransport_ConsumeNodes_Should_not_write_nodes_with_id_not_in_distance_parameter(t *testing.T) {
+	transport := Transport{
+		log: logger.GetLogger(),
+	}
+
+	rpcCall := &rpc{
+		// we set same id like in one of result nodes.
+		self:  node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
+		resCh: make(chan Packet, 1),
+	}
+
+	reqID := []byte("1111")
+	expectedNodes := []*node.Node{
+		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	}
+	nodesList := &NodesList{
+		ReqID: reqID,
+		Count: 1,
+		Nodes: []*node.Node{
+			node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
+			node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+		},
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		rpcCall.resCh <- nodesList
+	}()
+
+	nodes, err := transport.consumeNodes(rpcCall, distances)
+	require.NoError(t, err)
+	assert.Equal(t, expectedNodes, nodes)
+}
+
+func TestTransport_ConsumeNodes_Should_not_write_nodes_if_it_already_seen(t *testing.T) {
+	// this test same like TestTransport_ConsumeNode_Should_receive_all_nodes_with_two_incoming_packets.
+	transport := Transport{
+		log: logger.GetLogger(),
+	}
+
+	rpcCall := &rpc{
+		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		resCh: make(chan Packet, 1),
+	}
+
+	reqID := []byte("1111")
+	expectedNodes := []*node.Node{
+		node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
+		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	}
+	nodesList := &NodesList{
+		ReqID: reqID,
+		Count: 1,
+		Nodes: expectedNodes,
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		rpcCall.resCh <- nodesList
+		time.Sleep(100 * time.Millisecond)
+		rpcCall.resCh <- nodesList
+	}()
+
+	nodes, err := transport.consumeNodes(rpcCall, distances)
+	require.NoError(t, err)
+	assert.Equal(t, expectedNodes, nodes)
+}
+
+func TestTransport_ConsumeNodes_Should_return_error_if_got_error_in_err_channel(t *testing.T) {
+	transport := Transport{
+		log: logger.GetLogger(),
+	}
+
+	rpcCall := &rpc{
+		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		errCh: make(chan error, 1),
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		rpcCall.errCh <- errors.New("timeout")
+	}()
+
+	_, err := transport.consumeNodes(rpcCall, distances)
+	assert.Error(t, err)
+	assert.Equal(t, "timeout", err.Error())
+}
+
+func TestTransport_FindNode_Should_return_nodes_with_requested_distance(t *testing.T) {
+	transport := Transport{
+		log:          logger.GetLogger(),
+		nextCallCh:   make(chan *rpc, 1),
+		cancelCallCh: make(chan *rpc, 1),
+	}
+
+	n := node.WrapNode(kademlia.NewNodeWithID(id3, addr))
+	expectedNodes := []*node.Node{
+		node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
+		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	}
+
+	nodesList := &NodesList{
+		ReqID: id3.Bytes(),
+		Count: 1,
+		Nodes: expectedNodes,
+	}
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		nextCall := <-transport.nextCallCh
+		nextCall.resCh <- nodesList
+	}()
+
+	result, err := transport.FindNode(n, distances)
+	require.NoError(t, err)
+	assert.Equal(t, expectedNodes, result)
 }
