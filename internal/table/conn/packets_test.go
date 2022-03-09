@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/Melenium2/kademlia/internal/conn"
+	"github.com/Melenium2/kademlia/internal/table/conn"
 	"github.com/stretchr/testify/assert"
 )
 

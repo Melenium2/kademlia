@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/conn/mocks"
+	"github.com/Melenium2/kademlia/internal/table/conn/mocks"
 	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/assert"

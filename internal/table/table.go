@@ -2,7 +2,7 @@ package table
 
 import (
 	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/kbuckets"
+	"github.com/Melenium2/kademlia/internal/table/kbuckets"
 	"github.com/Melenium2/kademlia/internal/table/node"
 )
 
