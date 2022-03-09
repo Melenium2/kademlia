@@ -269,6 +269,8 @@ func (t *Transport) consume(packetCh chan Packet, errCh chan error) (Packet, err
 	return packet, err
 }
 
+// FindNode make call for provided node with provided 'distances', this node should return
+// list of nodes which distance contains in 'distances' slice.
 func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, error) {
 	var (
 		reqID = GenerateReqID()
@@ -281,6 +283,10 @@ func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, e
 	return t.consumeNodes(remoteCall, distances)
 }
 
+// consumeNodes consumes all incoming NodesList in provided range if 'distances', if some node ID
+// not in 'distance' slice, than we remove it from result slice.
+//
+// This function returns nodes, with unique ID's.
 func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, error) {
 	var (
 		nodes           []*node.Node
@@ -330,6 +336,9 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 	}
 }
 
+// validateNode finds node.LogDistance between provided kademlia.ID's and checks
+// if distance exists in provided argument, if not that means that result was
+// incorrect.
 func (t *Transport) validateNode(self, incoming kademlia.ID, distance []uint) error {
 	// todo check that node is valid connection target. We need to check IP and Port.
 	logDistance := node.LogDistance(self, incoming)
