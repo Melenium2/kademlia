@@ -18,24 +18,19 @@ const (
 
 )
 
-type BucketStorage interface {
-}
-
 type Config struct {
 	BootNodes []*kademlia.Node
 }
 
 type Table struct {
-	store   BucketStorage
 	buckets *kbuckets.KBuckets
 	self    *node.Node
 }
 
-func NewTable(cfg *Config, db BucketStorage, kadenode *kademlia.Node) *Table {
+func NewTable(cfg *Config, kadenode *kademlia.Node) *Table {
 	return &Table{
-		store:   db,
 		self:    node.WrapNode(kadenode),
-		buckets: kbuckets.New(BucketSize, bucketMinDistance),
+		buckets: kbuckets.New(node.WrapNode(kadenode), BucketSize, bucketMinDistance),
 	}
 }
 
