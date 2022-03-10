@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"time"
 
@@ -19,18 +20,8 @@ const (
 	Timeout                = 1 * time.Second
 	MaxMessageSize         = 1000
 	TotalNodesPacketsLimit = 5
+	TotalNodeSendLimit     = 16
 )
-
-type UDPConn interface {
-	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
-	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
-	Close() error
-	LocalAddr() net.Addr
-}
-
-type KBuckets interface {
-	BucketAtDistance(dist int) *kbuckets.Bucket
-}
 
 type rpc struct {
 	requestID []byte
@@ -85,6 +76,18 @@ func newRPC(reqID []byte, self *node.Node, request Packet) *rpc {
 	}
 
 	return &r
+}
+
+type UDPConn interface {
+	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
+	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
+	Close() error
+	LocalAddr() net.Addr
+}
+
+type KBuckets interface {
+	WhoAmI() *node.Node
+	BucketAtDistance(dist int) *kbuckets.Bucket
 }
 
 // Transport is structure for providing access to UDP network.
@@ -422,6 +425,12 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 
 			return
 		}
+	case *FindNodes:
+		if err = t.handleFindNode(id, p, addr); err != nil {
+			t.log.Error(err.Error())
+
+			return
+		}
 	default:
 		t.log.Warnf("got unknown packet type %+v", packet)
 	}
@@ -467,6 +476,78 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 	pc.resCh <- pong
 
 	return nil
+}
+
+func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) error {
+	nodes := t.findNodesByDistance(p.Distances)
+
+	if len(nodes) == 0 {
+		if err := t.send(kademlia.NewIDFromSlice(id), &NodesList{ReqID: p.ReqID, Count: 1}, addr); err != nil {
+			return fmt.Errorf("can not send back NodesList, reason %w", err)
+		}
+	}
+
+	groups := t.packNodesByGroups(id, nodes)
+
+	for _, group := range groups {
+		if err := t.send(kademlia.NewIDFromSlice(id), group, addr); err != nil {
+			return fmt.Errorf("can not send back NodesList, reason %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (t *Transport) findNodesByDistance(distances []uint) []*node.Node {
+	var (
+		processed = make(map[uint]struct{}, len(distances))
+		nodes     []*node.Node
+	)
+
+	for _, distance := range distances {
+		_, seen := processed[distance]
+		if seen || distance > 256 {
+			continue
+		}
+
+		if distance == 0 {
+			nodes = append(nodes, t.store.WhoAmI())
+		} else {
+			nodesAtDistance := t.store.BucketAtDistance(int(distance))
+			nodes = append(nodes, nodesAtDistance.Entries...)
+		}
+
+		processed[distance] = struct{}{}
+
+		if len(nodes) >= TotalNodeSendLimit {
+			return nodes[:TotalNodeSendLimit]
+		}
+	}
+
+	return nodes
+}
+
+func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesList {
+	var (
+		packCount = int(math.Ceil(float64(len(nodes)) / TotalNodesPacketsLimit))
+		nodeLists = make([]*NodesList, packCount)
+	)
+
+	for i := range nodeLists {
+		nodeLists[i] = &NodesList{
+			ReqID: id,
+			Count: uint8(packCount),
+			Nodes: make([]*node.Node, 0, TotalNodesPacketsLimit),
+		}
+	}
+
+	for i, n := range nodes {
+		currIndex := i % packCount
+
+		nodeLists[currIndex].Nodes = append(nodeLists[currIndex].Nodes, n)
+	}
+
+	return nodeLists
 }
 
 // validateIncomingPacket compare RequestID, Type, IP and Port of two packets, if all right then return nothing.
