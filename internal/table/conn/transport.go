@@ -487,7 +487,7 @@ func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) e
 		}
 	}
 
-	groups := t.packNodesByGroups(id, nodes)
+	groups := t.packNodesByGroups(p.ReqID, nodes)
 
 	for _, group := range groups {
 		if err := t.send(kademlia.NewIDFromSlice(id), group, addr); err != nil {
