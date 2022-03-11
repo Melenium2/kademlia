@@ -431,6 +431,12 @@ func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 
 			return
 		}
+	case *NodesList:
+		if err = t.handleNodeList(id, p, addr); err != nil {
+			t.log.Error(err.Error())
+
+			return
+		}
 	default:
 		t.log.Warnf("got unknown packet type %+v", packet)
 	}
@@ -455,27 +461,7 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 
 // handlePong message and validate it. If message is valid, then trying to complete rpc call.
 func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
-	kadeID := kademlia.NewIDFromSlice(id)
-
-	pc, ok := t.pendingCalls[kadeID]
-	if !ok {
-		return fmt.Errorf("node with arrived ID not found, got wrong ID")
-	}
-
-	selfAddr := &net.UDPAddr{
-		IP:   pc.self.IP(),
-		Port: pc.self.UDPPort(),
-	}
-
-	if err := t.validateIncomingPacket(PongMessage, pc.request, pong, selfAddr, addr); err != nil {
-		return err
-	}
-
-	pc.ApplyTimeout(Timeout)
-
-	pc.resCh <- pong
-
-	return nil
+	return t.handleIncomingResponse(PongMessage, id, pong, addr)
 }
 
 // handleFindNode message and finds in local bucket storage nodes with provided distances, then
@@ -556,6 +542,34 @@ func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesLis
 	}
 
 	return nodeLists
+}
+
+func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) error {
+	return t.handleIncomingResponse(NodesListMessage, id, p, addr)
+}
+
+func (t *Transport) handleIncomingResponse(respType byte, id []byte, p Packet, addr *net.UDPAddr) error {
+	kadeID := kademlia.NewIDFromSlice(id)
+
+	pc, ok := t.pendingCalls[kadeID]
+	if !ok {
+		return fmt.Errorf("node with arrived ID not found, got wrong ID")
+	}
+
+	selfAddr := &net.UDPAddr{
+		IP:   pc.self.IP(),
+		Port: pc.self.UDPPort(),
+	}
+
+	if err := t.validateIncomingPacket(respType, pc.request, p, selfAddr, addr); err != nil {
+		return err
+	}
+
+	pc.ApplyTimeout(Timeout)
+
+	pc.resCh <- p
+
+	return nil
 }
 
 // validateIncomingPacket compare RequestID, Type, IP and Port of two packets, if all right then return nothing.
