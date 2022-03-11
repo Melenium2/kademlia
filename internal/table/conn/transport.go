@@ -543,10 +543,14 @@ func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesLis
 	return nodeLists
 }
 
+// handleNodeList message. If message is valid trying to cancel rpc call.
 func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) error { // nolint:interfacer
 	return t.handleIncomingResponse(NodesListMessage, id, p, addr)
 }
 
+// handleIncomingResponse, common function for each incoming responses to requests. Function will
+// find necessary rpc call and validate it with incoming Packet, if it is valid then provide
+// packet to result channel of rpc call.
 func (t *Transport) handleIncomingResponse(respType byte, id []byte, p Packet, addr *net.UDPAddr) error {
 	kadeID := kademlia.NewIDFromSlice(id)
 
