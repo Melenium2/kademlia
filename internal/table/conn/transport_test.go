@@ -898,3 +898,58 @@ func TestTransport_FindNode_Should_return_nodes_with_requested_distance(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, expectedNodes, result)
 }
+
+func TestTransport_PackNodesByGroups_Should_separate_all_incoming_nodes_to_groups_less_then_five(t *testing.T) {
+	transport := Transport{}
+
+	var (
+		incomingID    = []byte("123")
+		incomingNodes = []*node.Node{
+			testNode, testNode, testNode, testNode, testNode, testNode, testNode, testNode,
+		}
+	)
+
+	expected := []*NodesList{
+		{
+			ReqID: incomingID,
+			Count: 2,
+			Nodes: []*node.Node{
+				testNode, testNode, testNode, testNode, testNode,
+			},
+		},
+		{
+			ReqID: incomingID,
+			Count: 2,
+			Nodes: []*node.Node{
+				testNode, testNode, testNode,
+			},
+		},
+	}
+
+	groups := transport.packNodesByGroups(incomingID, incomingNodes)
+	assert.Equal(t, expected, groups)
+}
+
+func TestTransport_PackNodesByGroups_Should_create_only_one_packet_because_count_of_incoming_nodes_less_then_five(t *testing.T) {
+	transport := Transport{}
+
+	var (
+		incomingID    = []byte("123")
+		incomingNodes = []*node.Node{
+			testNode, testNode, testNode, testNode,
+		}
+	)
+
+	expected := []*NodesList{
+		{
+			ReqID: incomingID,
+			Count: 1,
+			Nodes: []*node.Node{
+				testNode, testNode, testNode, testNode,
+			},
+		},
+	}
+
+	groups := transport.packNodesByGroups(incomingID, incomingNodes)
+	assert.Equal(t, expected, groups)
+}
