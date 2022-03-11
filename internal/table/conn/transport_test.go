@@ -1056,3 +1056,125 @@ func TestTransport_FindNodesByDistance_Should_skip_all_distances_if_they_has_dup
 	nodes := transport.findNodesByDistance(incomingNodes)
 	assert.Equal(t, expected, nodes)
 }
+
+var (
+	incomingPacket = &FindNodes{
+		ReqID:     []byte("123"),
+		Distances: []uint{159, 158, 167, 159},
+	}
+	incomingAddr = addr
+	incomingID   = kadeID.Bytes()
+)
+
+func TestTransport_HandleFindNode_Should_return_one_empty_packet_if_by_provided_distances_no_buckets_found(t *testing.T) {
+	expectedNodeList := &NodesList{
+		ReqID: []byte("123"),
+		Count: 1,
+		Nodes: nil,
+	}
+	expectedRawNodeList := Marshal(incomingID, expectedNodeList)
+
+	fakeStore := &mocks.KBuckets{}
+
+	fakeStore.On("BucketAtDistance", 159).Return(&kbuckets.Bucket{}).Once()
+	fakeStore.On("BucketAtDistance", 158).Return(&kbuckets.Bucket{}).Once()
+	fakeStore.On("BucketAtDistance", 167).Return(&kbuckets.Bucket{}).Once()
+
+	fakeConnInternal := &mocks.UDPConn{}
+
+	fakeConnInternal.
+		On("WriteToUDP", expectedRawNodeList, incomingAddr).
+		Return(len(expectedRawNodeList), nil)
+
+	transport := Transport{
+		store: fakeStore,
+		conn:  fakeConnInternal,
+	}
+
+	err := transport.handleFindNode(incomingID, incomingPacket, incomingAddr)
+	assert.NoError(t, err)
+}
+
+func TestTransport_HandleFindNode_Should_send_two_packets_back_to_requester(t *testing.T) {
+	expectedNodeLists := []*NodesList{
+		{
+			ReqID: []byte("123"),
+			Count: 4,
+			Nodes: []*node.Node{
+				testNode, testNode, testNode, testNode, testNode,
+			},
+		},
+		{
+			ReqID: []byte("123"),
+			Count: 4,
+			Nodes: []*node.Node{
+				testNode, testNode, testNode, testNode, testNode,
+			},
+		},
+		{
+			ReqID: []byte("123"),
+			Count: 4,
+			Nodes: []*node.Node{
+				testNode, testNode, testNode, testNode, testNode,
+			},
+		},
+		{
+			ReqID: []byte("123"),
+			Count: 4,
+			Nodes: []*node.Node{
+				testNode,
+			},
+		},
+	}
+	expectedRawNodeLists := [][]byte{
+		Marshal(incomingID, expectedNodeLists[0]),
+		Marshal(incomingID, expectedNodeLists[1]),
+		Marshal(incomingID, expectedNodeLists[2]),
+		Marshal(incomingID, expectedNodeLists[3]),
+	}
+
+	fakeStore := &mocks.KBuckets{}
+
+	kbucket := &kbuckets.Bucket{
+		Entries: []*node.Node{
+			testNode, testNode, testNode, testNode, testNode,
+			testNode, testNode, testNode, testNode, testNode,
+		},
+	}
+
+	fakeStore.
+		On("BucketAtDistance", 159).
+		Return(kbucket).
+		Once()
+
+	fakeStore.
+		On("BucketAtDistance", 158).
+		Return(kbucket).
+		Once()
+
+	fakeConnInternal := &mocks.UDPConn{}
+
+	fakeConnInternal.
+		On("WriteToUDP", expectedRawNodeLists[0], incomingAddr).
+		Return(len(expectedRawNodeLists[0]), nil)
+
+	fakeConnInternal.
+		On("WriteToUDP", expectedRawNodeLists[1], incomingAddr).
+		Return(len(expectedRawNodeLists[1]), nil)
+
+	fakeConnInternal.
+		On("WriteToUDP", expectedRawNodeLists[2], incomingAddr).
+		Return(len(expectedRawNodeLists[2]), nil)
+
+	fakeConnInternal.
+		On("WriteToUDP", expectedRawNodeLists[3], incomingAddr).
+		Return(len(expectedRawNodeLists[3]), nil)
+
+	transport := Transport{
+		store: fakeStore,
+		conn:  fakeConnInternal,
+	}
+
+	err := transport.handleFindNode(incomingID, incomingPacket, incomingAddr)
+	assert.NoError(t, err)
+}
