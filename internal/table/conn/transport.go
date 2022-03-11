@@ -529,8 +529,8 @@ func (t *Transport) findNodesByDistance(distances []uint) []*node.Node {
 
 func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesList {
 	var (
-		packCount = int(math.Ceil(float64(len(nodes)) / TotalNodesPacketsLimit))
-		nodeLists = make([]*NodesList, packCount)
+		packCount = math.Ceil(float64(len(nodes)) / TotalNodesPacketsLimit)
+		nodeLists = make([]*NodesList, int(packCount))
 	)
 
 	for i := range nodeLists {
@@ -542,7 +542,7 @@ func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesLis
 	}
 
 	for i, n := range nodes {
-		currIndex := i % packCount
+		currIndex := int(math.Floor(float64(i) / TotalNodesPacketsLimit))
 
 		nodeLists[currIndex].Nodes = append(nodeLists[currIndex].Nodes, n)
 	}
