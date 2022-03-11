@@ -478,6 +478,8 @@ func (t *Transport) handlePong(id []byte, pong *Pong, addr *net.UDPAddr) error {
 	return nil
 }
 
+// handleFindNode message and finds in local bucket storage nodes with provided distances, then
+// form group and send result back to requester.
 func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) error {
 	nodes := t.findNodesByDistance(p.Distances)
 
@@ -498,6 +500,8 @@ func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) e
 	return nil
 }
 
+// findNodesByDistance check nodes with provided distances inside local bucket store.
+// If we find nodes more than TotalNodeSendLimit then cut it and return.
 func (t *Transport) findNodesByDistance(distances []uint) []*node.Node {
 	var (
 		processed = make(map[uint]struct{}, len(distances))
@@ -527,6 +531,10 @@ func (t *Transport) findNodesByDistance(distances []uint) []*node.Node {
 	return nodes
 }
 
+// packNodesByGroups groups all provided nodes to group up to TotalNodesPacketsLimit.
+//
+// For example if 16 nodes will be provided, then this function will separate it to
+// groups with 5 - 5 - 5 - 1 nodes.
 func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesList {
 	var (
 		packCount = math.Ceil(float64(len(nodes)) / TotalNodesPacketsLimit)
