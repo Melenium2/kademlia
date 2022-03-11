@@ -10,6 +10,7 @@ import (
 
 	"github.com/Melenium2/kademlia"
 	"github.com/Melenium2/kademlia/internal/table/conn/mocks"
+	"github.com/Melenium2/kademlia/internal/table/kbuckets"
 	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -952,4 +953,106 @@ func TestTransport_PackNodesByGroups_Should_create_only_one_packet_because_count
 
 	groups := transport.packNodesByGroups(incomingID, incomingNodes)
 	assert.Equal(t, expected, groups)
+}
+
+func TestTransport_FindNodesByDistance_Should_return_up_to_sixteen_nodes_by_provided_distances(t *testing.T) {
+	incomingDistances := []uint{159, 158}
+
+	expected := []*node.Node{
+		testNode, testNode, testNode, testNode,
+		testNode, testNode, testNode, testNode,
+		testNode, testNode, testNode, testNode,
+		testNode, testNode, testNode, testNode,
+	}
+
+	fakeStore := &mocks.KBuckets{}
+
+	kbucket := &kbuckets.Bucket{
+		Entries: []*node.Node{
+			testNode, testNode, testNode, testNode,
+			testNode, testNode, testNode, testNode,
+			testNode, testNode, testNode, testNode,
+		},
+	}
+
+	fakeStore.
+		On("BucketAtDistance", 159).
+		Return(kbucket)
+
+	kbucketTwo := &kbuckets.Bucket{
+		Entries: []*node.Node{
+			testNode, testNode, testNode, testNode,
+			testNode, testNode, testNode, testNode,
+		},
+	}
+
+	fakeStore.
+		On("BucketAtDistance", 158).
+		Return(kbucketTwo)
+
+	transport := Transport{
+		store: fakeStore,
+	}
+
+	nodes := transport.findNodesByDistance(incomingDistances)
+	assert.Equal(t, expected, nodes)
+}
+
+func TestTransport_FindNodesByDistance_Should_finds_local_node_if_incoming_distances_has_zero(t *testing.T) {
+	incomingDistances := []uint{159, 0}
+
+	iam := node.WrapNode(kademlia.NewNode(addr))
+	expected := []*node.Node{
+		testNode, testNode, testNode, testNode,
+		iam,
+	}
+
+	fakeStore := &mocks.KBuckets{}
+
+	kbucket := &kbuckets.Bucket{
+		Entries: []*node.Node{
+			testNode, testNode, testNode, testNode,
+		},
+	}
+
+	fakeStore.
+		On("BucketAtDistance", 159).
+		Return(kbucket)
+
+	fakeStore.On("WhoAmI").Return(iam)
+
+	transport := Transport{
+		store: fakeStore,
+	}
+
+	nodes := transport.findNodesByDistance(incomingDistances)
+	assert.Equal(t, expected, nodes)
+}
+
+func TestTransport_FindNodesByDistance_Should_skip_all_distances_if_they_has_duplicates_or_their_value_more_then_256(t *testing.T) {
+	incomingNodes := []uint{159, 159, 300}
+
+	expected := []*node.Node{
+		testNode, testNode, testNode,
+	}
+
+	fakeStore := &mocks.KBuckets{}
+
+	kbucket := &kbuckets.Bucket{
+		Entries: []*node.Node{
+			testNode, testNode, testNode,
+		},
+	}
+
+	fakeStore.
+		On("BucketAtDistance", 159).
+		Return(kbucket).
+		Once()
+
+	transport := Transport{
+		store: fakeStore,
+	}
+
+	nodes := transport.findNodesByDistance(incomingNodes)
+	assert.Equal(t, expected, nodes)
 }
