@@ -81,8 +81,6 @@ func newRPC(reqID []byte, self *node.Node, request Packet) *rpc {
 type UDPConn interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
 	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
-	Close() error
-	LocalAddr() net.Addr
 }
 
 type KBuckets interface {
