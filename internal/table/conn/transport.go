@@ -406,6 +406,7 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 //
 // If function can not unmarshal raw bytes to the packet, the error will be logged.
 // Another case where error will be logged, if type of packet unknown.
+// nolint:cyclop
 func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
 	packet, id, err := Unmarshal(body)
 	if err != nil {
@@ -544,7 +545,7 @@ func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesLis
 	return nodeLists
 }
 
-func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) error {
+func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) error { // nolint:interfacer
 	return t.handleIncomingResponse(NodesListMessage, id, p, addr)
 }
 
