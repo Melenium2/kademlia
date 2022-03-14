@@ -12,7 +12,7 @@ const LookupResultLimit = 3
 // Finder try to connect to Node with settings provided by the arguments
 // and return the closest nodes to provided Node.
 type finder interface {
-	Find(id *node.Node, distances []uint) ([]*node.Node, error)
+	FindNode(id *node.Node, distances []uint) ([]*node.Node, error)
 }
 
 // lookupConfig is configuration to lookup mechanism.
@@ -47,7 +47,7 @@ type lookup struct {
 }
 
 // newLookup create new lookup mechanism.
-func newLookup(cfg lookupConfig, finder finder, self *node.Node) *lookup {
+func newLookup(finder finder, self *node.Node, cfg lookupConfig) *lookup {
 	return &lookup{
 		finder:      finder,
 		log:         logger.GetLogger(),
@@ -179,7 +179,7 @@ func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 func (l *lookup) scan(curr *node.Node, resCh chan []*node.Node, errCh chan error) {
 	distance := node.DistancesBetween(l.selfID, curr.ID(), LookupResultLimit)
 
-	nodes, err := l.finder.Find(curr, distance)
+	nodes, err := l.finder.FindNode(curr, distance)
 	if err != nil {
 		errCh <- err
 

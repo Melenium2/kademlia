@@ -13,7 +13,7 @@ type Finder struct {
 }
 
 // Find provides a mock function with given fields: id, distances
-func (_m *Finder) Find(id *node.Node, distances []uint) ([]*node.Node, error) {
+func (_m *Finder) FindNode(id *node.Node, distances []uint) ([]*node.Node, error) {
 	ret := _m.Called(id, distances)
 
 	var r0 []*node.Node

@@ -39,9 +39,9 @@ func TestScan_Should_call_Find_func_and_return_result_to_result_channel(t *testi
 	)
 
 	fakeFinder := mocks.Finder{}
-	fakeFinder.On("Find", targetNode, mock.IsType([]uint{})).Return(expected, nil)
+	fakeFinder.On("FindNode", targetNode, mock.IsType([]uint{})).Return(expected, nil)
 
-	l := newLookup(lookupConfig{}, &fakeFinder, self)
+	l := newLookup(&fakeFinder, self, lookupConfig{})
 
 	l.scan(targetNode, resCh, errCh)
 
@@ -61,9 +61,9 @@ func TestScan_Should_call_Find_func_which_return_some_error(t *testing.T) {
 	)
 
 	fakeFinder := mocks.Finder{}
-	fakeFinder.On("Find", targetNode, mock.IsType([]uint{})).Return(nil, ErrEmptyBootstrapNodes)
+	fakeFinder.On("FindNode", targetNode, mock.IsType([]uint{})).Return(nil, ErrEmptyBootstrapNodes)
 
-	l := newLookup(lookupConfig{}, &fakeFinder, self)
+	l := newLookup(&fakeFinder, self, lookupConfig{})
 
 	l.scan(targetNode, resCh, errCh)
 
@@ -82,7 +82,7 @@ func TestConsume_Should_save_all_incoming_nodes_from_provided_channel_also_nodes
 		resCh    = make(chan []*node.Node, Alpha)
 		errCh    = make(chan error, 1)
 	)
-	l := newLookup(lookupConfig{}, nil, self)
+	l := newLookup(nil, self, lookupConfig{})
 	l.started = 1
 
 	resCh <- expected
@@ -111,7 +111,7 @@ func TestConsume_Should_dont_save_already_processed_nodes(t *testing.T) {
 		resCh    = make(chan []*node.Node, Alpha)
 		errCh    = make(chan error, 1)
 	)
-	l := newLookup(lookupConfig{}, nil, self)
+	l := newLookup(nil, self, lookupConfig{})
 	l.started = 1
 
 	for _, curr := range expected {
@@ -134,7 +134,7 @@ func TestConsume_Should_return_error_if_error_sent_to_the_channel(t *testing.T) 
 		errCh       = make(chan error, 1)
 		expectedErr = errors.New("some error while processing")
 	)
-	l := newLookup(lookupConfig{}, nil, self)
+	l := newLookup(nil, self, lookupConfig{})
 	l.started = 1
 
 	errCh <- expectedErr
@@ -154,11 +154,11 @@ func TestStart_Should_startup_with_3_nodes_and_check_it_then_add_3_more_nodes_an
 
 	fakeFinder := mocks.Finder{}
 	fakeFinder.
-		On("Find", mock.IsType(self), mock.IsType([]uint{})).
+		On("FindNode", mock.IsType(self), mock.IsType([]uint{})).
 		Return(result, nil).
 		Times(6)
 
-	l := newLookup(lookupConfig{}, &fakeFinder, self)
+	l := newLookup(&fakeFinder, self, lookupConfig{})
 
 	for i := 0; i < iteration; i++ {
 		l.resultNodes.Add(randomNode())
@@ -186,10 +186,10 @@ func TestStart_Should_return_error_if_can_not_consume_some_nodes(t *testing.T) {
 
 	fakeFinder := mocks.Finder{}
 	fakeFinder.
-		On("Find", mock.IsType(self), mock.IsType([]uint{})).
+		On("FindNode", mock.IsType(self), mock.IsType([]uint{})).
 		Return(nil, expectedErr)
 
-	l := newLookup(lookupConfig{}, &fakeFinder, self)
+	l := newLookup(&fakeFinder, self, lookupConfig{})
 
 	for i := 0; i < iteration; i++ {
 		l.resultNodes.Add(randomNode())
@@ -206,7 +206,7 @@ func TestDrain_Should_drain_all_channels(t *testing.T) {
 		errCh = make(chan error, 1)
 	)
 
-	l := newLookup(lookupConfig{}, nil, self)
+	l := newLookup(nil, self, lookupConfig{})
 
 	resCh <- []*node.Node{randomNode(), randomNode()}
 	errCh <- io.ErrClosedPipe
