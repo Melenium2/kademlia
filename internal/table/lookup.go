@@ -1,18 +1,18 @@
 package table
 
 import (
-	"net"
-
 	"github.com/Melenium2/kademlia"
 	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
+const LookupResultLimit = 3
+
 // Finder is interface which provide functionality to network find possibility.
 // Finder try to connect to Node with settings provided by the arguments
 // and return the closest nodes to provided Node.
 type finder interface {
-	Find(id kademlia.ID, ip net.IP) ([]*node.Node, error)
+	Find(id *node.Node, distances []uint) ([]*node.Node, error)
 }
 
 // lookupConfig is configuration to lookup mechanism.
@@ -27,6 +27,9 @@ type lookup struct {
 	// finder dials net calls to other nodes by their IP and ID.
 	finder finder
 	log    logger.Logger
+	// we need save pointer to self node, because we need to calculate distances
+	// between self node and target node, while scan.
+	selfID kademlia.ID
 
 	// nodes which already asked for new closer nodes.
 	askedNodes map[kademlia.ID]struct{}
@@ -48,6 +51,7 @@ func newLookup(cfg lookupConfig, finder finder, self *node.Node) *lookup {
 	return &lookup{
 		finder:      finder,
 		log:         logger.GetLogger(),
+		selfID:      self.ID(),
 		askedNodes:  make(map[kademlia.ID]struct{}),
 		seenNodes:   make(map[kademlia.ID]struct{}),
 		resultNodes: newOrderedNodes(self, BucketSize),
@@ -101,6 +105,10 @@ func (l *lookup) drainCh(resCh chan []*node.Node, errCh chan error) {
 func (l *lookup) appendNodes(nodes []*node.Node) {
 	for _, n := range nodes {
 		if n == nil {
+			continue
+		}
+
+		if l.selfID == n.ID() {
 			continue
 		}
 
@@ -169,7 +177,9 @@ func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 
 // scan provided Node to find the closest nodes to our self Node.
 func (l *lookup) scan(curr *node.Node, resCh chan []*node.Node, errCh chan error) {
-	nodes, err := l.finder.Find(curr.ID(), curr.IP())
+	distance := node.DistancesBetween(l.selfID, curr.ID(), LookupResultLimit)
+
+	nodes, err := l.finder.Find(curr, distance)
 	if err != nil {
 		errCh <- err
 
