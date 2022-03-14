@@ -2,6 +2,7 @@ package table
 
 import (
 	"github.com/Melenium2/kademlia"
+	"github.com/Melenium2/kademlia/internal/table/conn"
 	"github.com/Melenium2/kademlia/internal/table/kbuckets"
 	"github.com/Melenium2/kademlia/internal/table/node"
 )
@@ -23,18 +24,30 @@ type Config struct {
 }
 
 type Table struct {
-	buckets *kbuckets.KBuckets
-	self    *node.Node
+	transport *conn.Transport
+	buckets   *kbuckets.KBuckets
+	self      *node.Node
 }
 
-func NewTable(cfg *Config, kadenode *kademlia.Node) *Table {
-	return &Table{
-		self:    node.WrapNode(kadenode),
-		buckets: kbuckets.New(node.WrapNode(kadenode), BucketSize, bucketMinDistance),
+func NewTable(cfg *Config, self *kademlia.Node, connection conn.UDPConn) *Table {
+	t := &Table{
+		self:    node.WrapNode(self),
+		buckets: kbuckets.New(node.WrapNode(self), BucketSize, bucketMinDistance),
 	}
+
+	t.transport = conn.NewTransport(connection, t.buckets)
+
+	return t
 }
 
-func (t *Table) Discover() {}
+// TODO in last hours, lookup struct was changed, and it already (maybe) complete
+// 		todo some discover work.
+
+func (t *Table) Discover() {
+	// l := newLookup(lookupConfig{
+	// 	Bootstrap: nil,
+	// }, t.transport, t.self)
+}
 
 // TODO we can start implement protocol from doRefresh function
 // http://xlattice.sourceforge.net/components/protocol/kademlia/specs.html#implementation
