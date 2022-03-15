@@ -69,7 +69,7 @@ func (kb *KBuckets) existInBucket(bucket *Bucket, id kademlia.ID) bool {
 	return false
 }
 
-func (kb *KBuckets) AddSome(nodes []*node.Node) {
+func (kb *KBuckets) Add(nodes []*node.Node) {
 	kb.mutex.Lock()
 
 	for _, n := range nodes {
@@ -98,4 +98,4 @@ func (kb *KBuckets) add(node *node.Node) {
 	bucket.Entries = append(bucket.Entries, node)
 }
 
-// TODO think about mutex in this struct. We need to secure buckets with mutex from concurrent calls.
+// TODO test this.

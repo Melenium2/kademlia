@@ -59,7 +59,7 @@ func (t *Table) Discover() {
 		return
 	}
 
-	t.buckets.AddSome(nodes)
+	t.buckets.Add(nodes)
 }
 
 // Docs
