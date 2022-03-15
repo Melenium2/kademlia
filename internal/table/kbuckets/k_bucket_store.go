@@ -1,6 +1,7 @@
 package kbuckets
 
 import (
+	"sync"
 	"time"
 
 	"github.com/Melenium2/kademlia"
@@ -12,8 +13,11 @@ type Bucket struct {
 }
 
 type KBuckets struct {
-	self          *node.Node
-	buckets       []*Bucket
+	self *node.Node
+
+	mutex   *sync.RWMutex
+	buckets []*Bucket
+
 	minDistance   int
 	maxBucketSize int
 }
@@ -21,6 +25,7 @@ type KBuckets struct {
 func New(self *node.Node, storageSize, minDist, maxBucketSize int) *KBuckets {
 	return &KBuckets{
 		self:          self,
+		mutex:         &sync.RWMutex{},
 		maxBucketSize: maxBucketSize,
 		buckets:       make([]*Bucket, storageSize),
 		minDistance:   minDist,
@@ -46,12 +51,15 @@ func (kb *KBuckets) BucketByID(id kademlia.ID) *Bucket {
 }
 
 func (kb *KBuckets) Exist(id kademlia.ID) bool {
+	kb.mutex.RLock()
+	defer kb.mutex.RUnlock()
+
 	bucket := kb.BucketByID(id)
 
-	return kb.ExistInBucket(bucket, id)
+	return kb.existInBucket(bucket, id)
 }
 
-func (kb *KBuckets) ExistInBucket(bucket *Bucket, id kademlia.ID) bool {
+func (kb *KBuckets) existInBucket(bucket *Bucket, id kademlia.ID) bool {
 	for _, entry := range bucket.Entries {
 		if entry.ID() == id {
 			return true
@@ -62,19 +70,23 @@ func (kb *KBuckets) ExistInBucket(bucket *Bucket, id kademlia.ID) bool {
 }
 
 func (kb *KBuckets) AddSome(nodes []*node.Node) {
+	kb.mutex.Lock()
+
 	for _, n := range nodes {
-		kb.Add(n)
+		kb.add(n)
 	}
+
+	kb.mutex.Unlock()
 }
 
-func (kb *KBuckets) Add(node *node.Node) {
+func (kb *KBuckets) add(node *node.Node) {
 	if node.ID() == kb.self.ID() {
 		return
 	}
 
 	bucket := kb.BucketByID(node.ID())
 
-	if kb.ExistInBucket(bucket, node.ID()) {
+	if kb.existInBucket(bucket, node.ID()) {
 		return
 	}
 
