@@ -5,6 +5,7 @@ import (
 	"github.com/Melenium2/kademlia/internal/table/conn"
 	"github.com/Melenium2/kademlia/internal/table/kbuckets"
 	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
 const (
@@ -13,9 +14,9 @@ const (
 	// BucketSize is Kademlia single bucket size.
 	BucketSize = 16
 
-	hashBits          = len(kademlia.ID{}) * 8 // Length of hash in bits. Now this is length of SHA-1, 160 bits.
-	nBuckets          = hashBits / 15          // Number of buckets.
-	bucketMinDistance = hashBits - nBuckets    // Log distance of the closest bucket.
+	HashBits          = len(kademlia.ID{}) * 8 // Length of hash in bits. Now this is length of SHA-1, 160 bits.
+	NBuckets          = HashBits / 15          // Number of buckets.
+	BucketMinDistance = HashBits - NBuckets    // Log distance of the closest bucket.
 
 )
 
@@ -26,13 +27,19 @@ type Config struct {
 type Table struct {
 	transport *conn.Transport
 	buckets   *kbuckets.KBuckets
-	self      *node.Node
+
+	self           *node.Node
+	bootstrapNodes []*kademlia.Node
+
+	log logger.Logger
 }
 
 func NewTable(cfg *Config, self *kademlia.Node, connection conn.UDPConn) *Table {
 	t := &Table{
-		self:    node.WrapNode(self),
-		buckets: kbuckets.New(node.WrapNode(self), BucketSize, bucketMinDistance),
+		self:           node.WrapNode(self),
+		buckets:        kbuckets.New(node.WrapNode(self), NBuckets, BucketMinDistance, BucketSize),
+		bootstrapNodes: cfg.BootNodes,
+		log:            logger.GetLogger(),
 	}
 
 	t.transport = conn.NewTransport(connection, t.buckets)
@@ -40,16 +47,22 @@ func NewTable(cfg *Config, self *kademlia.Node, connection conn.UDPConn) *Table 
 	return t
 }
 
-// TODO in last hours, lookup struct was changed, and it already (maybe) complete
-// 		todo some discover work.
-
 func (t *Table) Discover() {
-	// l := newLookup(lookupConfig{
-	// 	Bootstrap: nil,
-	// }, t.transport, t.self)
+	lookupMechanism := newLookup(t.transport, t.self, lookupConfig{
+		Bootstrap: node.WrapNodes(t.bootstrapNodes),
+	})
+
+	nodes, err := lookupMechanism.Discover()
+	if err != nil {
+		t.log.Error(err.Error())
+
+		return
+	}
+
+	_ = nodes
 }
 
-// TODO we can start implement protocol from doRefresh function
+// Docs
 // http://xlattice.sourceforge.net/components/protocol/kademlia/specs.html#implementation
 // https://en.wikipedia.org/wiki/Kademlia
 // https://codethechange.stanford.edu/guides/guide_kademlia.html
