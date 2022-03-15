@@ -3,12 +3,15 @@ package node
 import (
 	"math/bits"
 	"net"
+	"time"
 
 	"github.com/Melenium2/kademlia"
 )
 
 type Node struct {
 	*kademlia.Node
+
+	addedAt time.Time
 }
 
 func (n *Node) Addr() net.UDPAddr {
@@ -18,10 +21,24 @@ func (n *Node) Addr() net.UDPAddr {
 	}
 }
 
+func (n *Node) AddedAt(time time.Time) {
+	n.addedAt = time
+}
+
 func WrapNode(n *kademlia.Node) *Node {
 	return &Node{
-		n,
+		Node: n,
 	}
+}
+
+func WrapNodes(nodes []*kademlia.Node) []*Node {
+	wrappedNodes := make([]*Node, len(nodes))
+
+	for i := 0; i < len(nodes); i++ {
+		wrappedNodes[i] = WrapNode(nodes[i])
+	}
+
+	return wrappedNodes
 }
 
 // DistanceCmp compares the distance between self-Node and Node-a, also,
