@@ -18,11 +18,11 @@ func NewIDFromSlice(id []byte) ID {
 	return *(*[20]byte)(id)
 }
 
-func (id *ID) Bytes() []byte {
+func (id ID) Bytes() []byte {
 	return id[:]
 }
 
-func (id *ID) String() string {
+func (id ID) String() string {
 	return string(id.Bytes())
 }
 
@@ -53,15 +53,15 @@ func NewNodeWithID(id ID, addr *net.UDPAddr) *Node {
 	}
 }
 
-func (n *Node) ID() ID {
+func (n Node) ID() ID {
 	return n.id
 }
 
-func (n *Node) IP() net.IP {
+func (n Node) IP() net.IP {
 	return n.ip
 }
 
-func (n *Node) UDPPort() int {
+func (n Node) UDPPort() int {
 	return n.udp
 }
 
