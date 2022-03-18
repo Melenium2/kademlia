@@ -1,6 +1,8 @@
 package table
 
 import (
+	"context"
+
 	"github.com/Melenium2/kademlia"
 	"github.com/Melenium2/kademlia/internal/table/conn"
 	"github.com/Melenium2/kademlia/internal/table/kbuckets"
@@ -35,14 +37,17 @@ type Table struct {
 }
 
 func NewTable(cfg *Config, self *kademlia.Node, connection conn.UDPConn) *Table {
+	wrappedSelf := node.WrapNode(self)
+
 	t := &Table{
-		self:           node.WrapNode(self),
-		buckets:        kbuckets.New(node.WrapNode(self), NBuckets, BucketMinDistance, BucketSize),
+		self:           wrappedSelf,
+		buckets:        kbuckets.New(wrappedSelf, NBuckets, BucketMinDistance, BucketSize),
 		bootstrapNodes: cfg.BootNodes,
 		log:            logger.GetLogger(),
 	}
 
 	t.transport = conn.NewTransport(connection, t.buckets)
+	go t.transport.Loop(context.Background())
 
 	return t
 }
