@@ -23,13 +23,19 @@ type KBuckets struct {
 }
 
 func New(self *node.Node, storageSize, minDist, maxBucketSize int) *KBuckets {
-	return &KBuckets{
+	kb := &KBuckets{
 		self:          self,
 		mutex:         &sync.RWMutex{},
 		maxBucketSize: maxBucketSize,
 		buckets:       make([]*Bucket, storageSize),
 		minDistance:   minDist,
 	}
+
+	for i := range kb.buckets {
+		kb.buckets[i] = &Bucket{}
+	}
+
+	return kb
 }
 
 func (kb *KBuckets) WhoAmI() *node.Node {
@@ -97,5 +103,3 @@ func (kb *KBuckets) add(node *node.Node) {
 	node.AddedAt(time.Now())
 	bucket.Entries = append(bucket.Entries, node)
 }
-
-// TODO test this.
