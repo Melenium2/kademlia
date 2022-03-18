@@ -27,7 +27,7 @@ func New(self *node.Node, storageSize, minDist, maxBucketSize int) *KBuckets {
 		self:          self,
 		mutex:         &sync.RWMutex{},
 		maxBucketSize: maxBucketSize,
-		buckets:       make([]*Bucket, storageSize),
+		buckets:       make([]*Bucket, storageSize+1),
 		minDistance:   minDist,
 	}
 
