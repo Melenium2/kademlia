@@ -546,6 +546,7 @@ func TestTransport_HandleNetworkPacket_Should_unmarshal_ping_and_handle_it_witho
 	)
 
 	transport := Transport{
+		log:  logger.GetLogger(),
 		conn: fakeConn(),
 	}
 
@@ -589,6 +590,7 @@ func TestTransport_HandleNetworkPacket_Should_unmarshal_pong_message_and_handle_
 	)
 
 	transport := Transport{
+		log:          logger.GetLogger(),
 		pendingCalls: make(map[node.ID]*rpc),
 	}
 	transport.pendingCalls[kadeID] = rpcCall
@@ -715,10 +717,20 @@ func TestTransport_ValidateNode(t *testing.T) {
 	}
 }
 
-var id3 = node.ID{
-	0x03, 0xD0, 0xE3, 0x2E, 0x96, 0x30, 0x10, 0x96, 0x64, 0xC8,
-	0x2E, 0x49, 0xA6, 0x7F, 0x80, 0x15, 0x25, 0x08, 0x17, 0x78,
-}
+var (
+	id3 = node.ID{
+		0x03, 0xD0, 0xE3, 0x2E, 0x96, 0x30, 0x10, 0x96, 0x64, 0xC8,
+		0x2E, 0x49, 0xA6, 0x7F, 0x80, 0x15, 0x25, 0x08, 0x17, 0x78,
+	}
+	expectedNodes = []*node.Node{
+		node.NewNodeWithID(id1, addr),
+		node.NewNodeWithID(id2, addr),
+	}
+	expectedWrappedNodes = []*Node{
+		WrapNode(node.NewNodeWithID(id1, addr)),
+		WrapNode(node.NewNodeWithID(id2, addr)),
+	}
+)
 
 func TestTransport_ConsumeNode_Should_receive_all_nodes_with_two_incoming_packets(t *testing.T) {
 	transport := Transport{
@@ -731,14 +743,11 @@ func TestTransport_ConsumeNode_Should_receive_all_nodes_with_two_incoming_packet
 	}
 
 	reqID := []byte("1111")
-	expectedNodes := []*Node{
-		WrapNode(node.NewNodeWithID(id1, addr)),
-		WrapNode(node.NewNodeWithID(id2, addr)),
-	}
+
 	nodesList := &NodesList{
 		ReqID: reqID,
 		Count: 2,
-		Nodes: expectedNodes,
+		Nodes: expectedWrappedNodes,
 	}
 
 	go func() {
@@ -821,14 +830,10 @@ func TestTransport_ConsumeNodes_Should_not_write_nodes_if_it_already_seen(t *tes
 	}
 
 	reqID := []byte("1111")
-	expectedNodes := []*Node{
-		WrapNode(node.NewNodeWithID(id1, addr)),
-		WrapNode(node.NewNodeWithID(id2, addr)),
-	}
 	nodesList := &NodesList{
 		ReqID: reqID,
 		Count: 1,
-		Nodes: expectedNodes,
+		Nodes: expectedWrappedNodes,
 	}
 
 	go func() {
@@ -873,15 +878,11 @@ func TestTransport_FindNode_Should_return_nodes_with_requested_distance(t *testi
 	}
 
 	n := node.NewNodeWithID(id3, addr)
-	expectedNodes := []*Node{
-		WrapNode(node.NewNodeWithID(id1, addr)),
-		WrapNode(node.NewNodeWithID(id2, addr)),
-	}
 
 	nodesList := &NodesList{
 		ReqID: id3.Bytes(),
 		Count: 1,
-		Nodes: expectedNodes,
+		Nodes: expectedWrappedNodes,
 	}
 
 	go func() {
