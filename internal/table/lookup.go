@@ -1,8 +1,8 @@
 package table
 
 import (
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/node"
+
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
@@ -29,12 +29,12 @@ type lookup struct {
 	log    logger.Logger
 	// we need save pointer to self node, because we need to calculate distances
 	// between self node and target node, while scan.
-	selfID kademlia.ID
+	selfID node.ID
 
 	// nodes which already asked for new closer nodes.
-	askedNodes map[kademlia.ID]struct{}
+	askedNodes map[node.ID]struct{}
 	// nodes which was already processed and stored in resultNodes.
-	seenNodes map[kademlia.ID]struct{}
+	seenNodes map[node.ID]struct{}
 	// result of lookup request. This structure will sort nodes
 	// by their distance between self node and other nodes.
 	resultNodes orderedNodes
@@ -52,8 +52,8 @@ func newLookup(finder finder, self *node.Node, cfg lookupConfig) *lookup {
 		finder:      finder,
 		log:         logger.GetLogger(),
 		selfID:      self.ID(),
-		askedNodes:  make(map[kademlia.ID]struct{}),
-		seenNodes:   make(map[kademlia.ID]struct{}),
+		askedNodes:  make(map[node.ID]struct{}),
+		seenNodes:   make(map[node.ID]struct{}),
 		resultNodes: newOrderedNodes(self, BucketSize),
 		bootstrap:   cfg.Bootstrap,
 	}

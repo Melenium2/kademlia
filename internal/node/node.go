@@ -1,10 +1,10 @@
-package kademlia
+package node
 
 import (
 	"bytes"
 	"net"
+	"time"
 
-	"github.com/Melenium2/kademlia/internal/crypto"
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
@@ -27,9 +27,10 @@ func (id ID) String() string {
 }
 
 type Node struct {
-	id  ID
-	ip  net.IP
-	udp int
+	id      ID
+	ip      net.IP
+	udp     int
+	addedAt time.Time
 }
 
 func NewNode(addr *net.UDPAddr) *Node {
@@ -53,6 +54,30 @@ func NewNodeWithID(id ID, addr *net.UDPAddr) *Node {
 	}
 }
 
+func NewNodeFromScratch(id ID, ip net.IP, port int, addedAt time.Time) *Node {
+	return &Node{
+		id:      id,
+		ip:      ip,
+		udp:     port,
+		addedAt: addedAt,
+	}
+}
+
+func (n *Node) Addr() net.UDPAddr {
+	return net.UDPAddr{
+		IP:   n.IP(),
+		Port: n.UDPPort(),
+	}
+}
+
+func (n *Node) AddedAt(time time.Time) {
+	n.addedAt = time
+}
+
+func (n *Node) AddedTime() time.Time {
+	return n.addedAt
+}
+
 func (n Node) ID() ID {
 	return n.id
 }
@@ -67,15 +92,4 @@ func (n Node) UDPPort() int {
 
 func (n *Node) Compare(with []byte) bool {
 	return bytes.Equal(n.id.Bytes(), with)
-}
-
-func GenerateID() (ID, error) {
-	sha1, err := crypto.Sha1()
-	if err != nil {
-		return ID{}, err
-	}
-
-	p := (*ID)(sha1)
-
-	return *p, nil
 }

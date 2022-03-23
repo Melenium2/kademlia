@@ -7,9 +7,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Melenium2/kademlia"
+	"github.com/Melenium2/kademlia/internal/node"
 	"github.com/Melenium2/kademlia/internal/table/mocks"
-	"github.com/Melenium2/kademlia/internal/table/node"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,9 +20,9 @@ func randomNode() *node.Node {
 		IP:   net.IPv4(1, 1, 1, 1),
 		Port: 5222,
 	}
-	newNode := kademlia.NewNode(addr)
+	newNode := node.NewNode(addr)
 
-	return node.WrapNode(newNode)
+	return newNode
 }
 
 var self = randomNode()

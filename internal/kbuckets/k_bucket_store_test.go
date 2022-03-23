@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Melenium2/kademlia/internal/kbuckets"
+	"github.com/Melenium2/kademlia/internal/node"
+
 	"bou.ke/monkey"
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/kbuckets"
-	"github.com/Melenium2/kademlia/internal/table/node"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,26 +30,25 @@ func TestMain(t *testing.M) {
 }
 
 var (
-	id   = kademlia.ID([20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
+	id   = node.ID([20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
 	addr = &net.UDPAddr{
 		IP:   net.IPv4(1, 1, 1, 1),
 		Port: 5222,
 	}
-	kadeNode      = kademlia.NewNodeWithID(id, addr)
-	selfNode      = node.WrapNode(kadeNode)
-	sixthBucketID = kademlia.ID([20]byte{20, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
+	kadeNode      = node.NewNodeWithID(id, addr)
+	selfNode      = kadeNode
+	sixthBucketID = node.ID([20]byte{20, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20})
 )
 
 func TestKBuckets_AddOne_Should_add_new_bucket_to_all_buckets_and_set_added_at_field_to_node(t *testing.T) {
 	buckets := kbuckets.New(selfNode, 15, 150, 3)
 
-	newKadeNode := kademlia.NewNodeWithID(sixthBucketID, addr)
-	newNode := node.WrapNode(newKadeNode)
+	newKadeNode := node.NewNodeWithID(sixthBucketID, addr)
 
-	buckets.AddLocal(newNode)
+	buckets.AddLocal(newKadeNode)
 
 	b := buckets.Buckets()
-	assert.Equal(t, b[6].Entries, []*node.Node{newNode})
+	assert.Equal(t, b[6].Entries, []*node.Node{newKadeNode})
 }
 
 func TestKBuckets_AddOne_Should_not_set_provided_node_if_we_set_node_with_id_like_in_self_node(t *testing.T) {
@@ -66,8 +65,8 @@ func TestKBuckets_AddOne_Should_not_set_provided_node_if_we_set_node_with_id_lik
 func TestKBuckets_AddOne_Should_not_set_provided_node_if_node_with_same_id_existed_in_bucket(t *testing.T) {
 	buckets := kbuckets.New(selfNode, 15, 150, 3)
 
-	newKadeNode := kademlia.NewNodeWithID(sixthBucketID, addr)
-	newNode := node.WrapNode(newKadeNode)
+	newKadeNode := node.NewNodeWithID(sixthBucketID, addr)
+	newNode := newKadeNode
 
 	buckets.AddLocal(newNode)
 	buckets.AddLocal(newNode)
@@ -80,15 +79,15 @@ func TestKBuckets_AddOne_Should_not_set_provided_node_if_node_with_same_id_exist
 func TestKBuckets_AddOne_Should_not_set_node_if_len_of_buckets_reach_limit(t *testing.T) {
 	buckets := kbuckets.New(selfNode, 15, 150, 1)
 
-	newKadeNode := kademlia.NewNodeWithID(sixthBucketID, addr)
-	newNode := node.WrapNode(newKadeNode)
+	newKadeNode := node.NewNodeWithID(sixthBucketID, addr)
+	newNode := newKadeNode
 
 	buckets.AddLocal(newNode)
 
 	oldID := newNode.ID().Bytes()
 	oldID[1] = 128
-	newKadeNode1 := kademlia.NewNodeWithID(kademlia.NewIDFromSlice(oldID), addr)
-	newNode1 := node.WrapNode(newKadeNode1)
+	newKadeNode1 := node.NewNodeWithID(node.NewIDFromSlice(oldID), addr)
+	newNode1 := newKadeNode1
 
 	buckets.AddLocal(newNode1)
 
@@ -109,10 +108,10 @@ func TestKBuckets_AddOne_Should_not_set_node_if_len_of_buckets_reach_limit(t *te
 func TestKBuckets_Add_Should_set_slice_of_nodes_to_buckets(t *testing.T) {
 	buckets := kbuckets.New(selfNode, 15, 150, 3)
 
-	nodes := node.WrapNodes([]*kademlia.Node{
-		kademlia.NewNode(addr), kademlia.NewNode(addr),
-		kademlia.NewNode(addr), kademlia.NewNode(addr),
-	})
+	nodes := []*node.Node{
+		node.NewNode(addr), node.NewNode(addr),
+		node.NewNode(addr), node.NewNode(addr),
+	}
 
 	buckets.Add(nodes)
 
@@ -129,10 +128,10 @@ func TestKBuckets_Add_Should_set_slice_of_nodes_to_buckets(t *testing.T) {
 func TestKBuckets_Add_Should_concurrently_accept_buckets(t *testing.T) {
 	buckets := kbuckets.New(selfNode, 15, 150, 3)
 
-	nodes := node.WrapNodes([]*kademlia.Node{
-		kademlia.NewNode(addr), kademlia.NewNode(addr),
-		kademlia.NewNode(addr), kademlia.NewNode(addr),
-	})
+	nodes := []*node.Node{
+		node.NewNode(addr), node.NewNode(addr),
+		node.NewNode(addr), node.NewNode(addr),
+	}
 
 	var wg sync.WaitGroup
 

@@ -10,14 +10,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/kbuckets"
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/kbuckets"
+	"github.com/Melenium2/kademlia/internal/node"
+
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
 const (
-	Timeout                = 1 * time.Second
+	Timeout                = 1 * time.Minute
 	MaxMessageSize         = 1000
 	TotalNodesPacketsLimit = 5
 	TotalNodeSendLimit     = 16
@@ -98,9 +98,9 @@ type Transport struct {
 	log   logger.Logger
 
 	// Messages queue we need to sendNext.
-	callQueue map[kademlia.ID][]*rpc
+	callQueue map[node.ID][]*rpc
 	// Map with messages already sent.
-	pendingCalls map[kademlia.ID]*rpc
+	pendingCalls map[node.ID]*rpc
 
 	// Channel which provided access to next rpc call.
 	nextCallCh chan *rpc
@@ -115,8 +115,8 @@ func NewTransport(conn UDPConn, store KBuckets) *Transport {
 		conn:         conn,
 		store:        store,
 		log:          logger.GetLogger(),
-		callQueue:    make(map[kademlia.ID][]*rpc),
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		callQueue:    make(map[node.ID][]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 		// todo change here to constant
 		cancelCallCh: make(chan *rpc, 10), // nolint:gomnd
 		nextCallCh:   make(chan *rpc, 10), // nolint:gomnd
@@ -154,7 +154,7 @@ func (t *Transport) Loop(ctx context.Context) error {
 // nextPending handles next item in rpc calls queue by provided ID.
 // If no items in queue with this ID or some call already in pending state,
 // function just return without any message.
-func (t *Transport) nextPending(id kademlia.ID) {
+func (t *Transport) nextPending(id node.ID) {
 	queue := t.callQueue[id]
 	if len(queue) == 0 || t.pendingCalls[id] != nil {
 		return
@@ -179,7 +179,7 @@ func (t *Transport) nextPending(id kademlia.ID) {
 // pending mapping, then function will call FATAL exit, because
 // this situation impossible if all components will work in normal
 // mode.
-func (t *Transport) removeFromPending(id kademlia.ID) {
+func (t *Transport) removeFromPending(id node.ID) {
 	var (
 		call *rpc
 		ok   bool
@@ -217,7 +217,7 @@ func (t *Transport) sendNext(call *rpc) error {
 
 // send convert provided packet to raw bytes and send by the UDP connection to provided
 // address.
-func (t *Transport) send(fromID kademlia.ID, req Packet, addr *net.UDPAddr) error {
+func (t *Transport) send(fromID node.ID, req Packet, addr *net.UDPAddr) error {
 	body := Marshal(fromID.Bytes(), req)
 
 	_, err := t.conn.WriteToUDP(body, addr)
@@ -291,7 +291,7 @@ func (t *Transport) FindNode(node *node.Node, distances []uint) ([]*node.Node, e
 func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, error) {
 	var (
 		nodes           []*node.Node
-		seen            = make(map[kademlia.ID]struct{})
+		seen            = make(map[node.ID]struct{})
 		err             error
 		received, total = 0, -1
 	)
@@ -309,7 +309,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 			}
 
 			for _, nextNode := range packetNodes.Nodes {
-				id := nextNode.ID()
+				id := node.NewIDFromSlice(nextNode.ID)
 
 				if err = t.validateNode(call.self.ID(), id, distances); err != nil {
 					t.log.Warnf("node with ID %d is invalid, reason %s", id.Bytes(), err)
@@ -318,14 +318,19 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 				}
 
 				if _, ok = seen[id]; ok {
-					t.log.Warnf("got duplicate record with ID %s, IP %s", hex.EncodeToString(id.Bytes()), nextNode.IP())
+					t.log.Warnf("got duplicate record with ID %s, IP %s", hex.EncodeToString(id.Bytes()), nextNode.IP)
 
 					continue
 				}
 
 				seen[id] = struct{}{}
 
-				nodes = append(nodes, nextNode)
+				nodes = append(nodes, node.NewNodeFromScratch(
+					node.NewIDFromSlice(nextNode.ID),
+					nextNode.IP,
+					nextNode.UDP,
+					nextNode.AddedAt,
+				))
 			}
 
 			if received++; received == total {
@@ -340,7 +345,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 // validateNode finds node.LogDistance between provided kademlia.ID's and checks
 // if distance exists in provided argument, if not that means that result was
 // incorrect.
-func (t *Transport) validateNode(self, incoming kademlia.ID, distance []uint) error {
+func (t *Transport) validateNode(self, incoming node.ID, distance []uint) error {
 	// todo check that node is valid connection target. We need to check IP and Port.
 	logDistance := node.LogDistance(self, incoming)
 	if !containsUint(uint(logDistance), distance) {
@@ -406,6 +411,8 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 // Another case where error will be logged, if type of packet unknown.
 // nolint:cyclop
 func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
+	t.log.Infof("%s", body)
+
 	packet, id, err := Unmarshal(body)
 	if err != nil {
 		t.log.Errorf("can not unmarshal incoming message, reason %w", err)
@@ -451,7 +458,7 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 		Port:  uint16(addr.Port),
 	}
 
-	if err := t.send(kademlia.NewIDFromSlice(id), pong, addr); err != nil {
+	if err := t.send(node.NewIDFromSlice(id), pong, addr); err != nil {
 		return fmt.Errorf("can not send pong back to ping request, request ID %s, reason %w", ping.ReqID, err)
 	}
 
@@ -469,7 +476,7 @@ func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) e
 	nodes := t.findNodesByDistance(p.Distances)
 
 	if len(nodes) == 0 {
-		if err := t.send(kademlia.NewIDFromSlice(id), &NodesList{ReqID: p.ReqID, Count: 1}, addr); err != nil {
+		if err := t.send(node.NewIDFromSlice(id), &NodesList{ReqID: p.ReqID, Count: 1}, addr); err != nil {
 			return fmt.Errorf("can not send back NodesList, reason %w", err)
 		}
 	}
@@ -477,7 +484,7 @@ func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) e
 	groups := t.packNodesByGroups(p.ReqID, nodes)
 
 	for _, group := range groups {
-		if err := t.send(kademlia.NewIDFromSlice(id), group, addr); err != nil {
+		if err := t.send(node.NewIDFromSlice(id), group, addr); err != nil {
 			return fmt.Errorf("can not send back NodesList, reason %w", err)
 		}
 	}
@@ -530,14 +537,14 @@ func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesLis
 		nodeLists[i] = &NodesList{
 			ReqID: id,
 			Count: uint8(packCount),
-			Nodes: make([]*node.Node, 0, TotalNodesPacketsLimit),
+			Nodes: make([]*Node, 0, TotalNodesPacketsLimit),
 		}
 	}
 
 	for i, n := range nodes {
 		currIndex := int(math.Floor(float64(i) / TotalNodesPacketsLimit))
 
-		nodeLists[currIndex].Nodes = append(nodeLists[currIndex].Nodes, n)
+		nodeLists[currIndex].Nodes = append(nodeLists[currIndex].Nodes, WrapNode(n))
 	}
 
 	return nodeLists
@@ -552,7 +559,7 @@ func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) e
 // find necessary rpc call and validate it with incoming Packet, if it is valid then provide
 // packet to result channel of rpc call.
 func (t *Transport) handleIncomingResponse(respType byte, id []byte, p Packet, addr *net.UDPAddr) error {
-	kadeID := kademlia.NewIDFromSlice(id)
+	kadeID := node.NewIDFromSlice(id)
 
 	pc, ok := t.pendingCalls[kadeID]
 	if !ok {

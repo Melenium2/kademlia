@@ -4,8 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/node"
 )
 
 type Bucket struct {
@@ -50,13 +49,13 @@ func (kb *KBuckets) BucketAtDistance(dist int) *Bucket {
 	return kb.buckets[dist-kb.minDistance-1]
 }
 
-func (kb *KBuckets) BucketByID(id kademlia.ID) *Bucket {
+func (kb *KBuckets) BucketByID(id node.ID) *Bucket {
 	distance := node.LogDistance(kb.self.ID(), id)
 
 	return kb.BucketAtDistance(distance)
 }
 
-func (kb *KBuckets) Exist(id kademlia.ID) bool {
+func (kb *KBuckets) Exist(id node.ID) bool {
 	kb.mutex.RLock()
 	defer kb.mutex.RUnlock()
 
@@ -65,7 +64,7 @@ func (kb *KBuckets) Exist(id kademlia.ID) bool {
 	return kb.existInBucket(bucket, id)
 }
 
-func (kb *KBuckets) existInBucket(bucket *Bucket, id kademlia.ID) bool {
+func (kb *KBuckets) existInBucket(bucket *Bucket, id node.ID) bool {
 	for _, entry := range bucket.Entries {
 		if entry.ID() == id {
 			return true

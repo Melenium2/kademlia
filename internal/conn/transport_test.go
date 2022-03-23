@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/conn/mocks"
-	"github.com/Melenium2/kademlia/internal/table/kbuckets"
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/conn/mocks"
+	"github.com/Melenium2/kademlia/internal/kbuckets"
+	"github.com/Melenium2/kademlia/internal/node"
+
 	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -94,9 +94,7 @@ func TestTransport_PruneCall_Should_retrieve_all_items_from_rpc_channels_and_the
 }
 
 var (
-	testNode = &node.Node{
-		Node: kademlia.NewNode(addr),
-	}
+	testNode = node.NewNode(addr)
 )
 
 func TestTransport_SendPing_Should_send_ping_request_and_got_pong_response(t *testing.T) {
@@ -121,10 +119,8 @@ func TestTransport_SendPing_Should_send_ping_request_and_got_pong_response(t *te
 var (
 	testCall = &rpc{
 		requestID: nil,
-		self: &node.Node{
-			Node: kademlia.NewNode(addr),
-		},
-		request: expectedPong,
+		self:      node.NewNode(addr),
+		request:   expectedPong,
 	}
 	id       = testCall.self.ID()
 	fakeConn = func() UDPConn {
@@ -211,7 +207,7 @@ func TestTransport_NextPending_Should_return_from_func_if_call_queue_is_empty(t 
 }
 
 func TestTransport_NextPending_Should_return_from_func_if_queue_by_provided_id_is_empty(t *testing.T) {
-	anotherID, _ := kademlia.GenerateID()
+	anotherID, _ := node.GenerateID()
 
 	transport := NewTransport(fakeConn(), nil)
 	transport.callQueue[anotherID] = append(transport.callQueue[anotherID], testCall)
@@ -409,7 +405,7 @@ func TestValidateIncomingPacket(t *testing.T) {
 	}
 }
 
-var kadeID = kademlia.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+var kadeID = node.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 
 func TestTransport_HandlePong_Should_find_pending_call_and_send_incoming_packet_res_channel(t *testing.T) {
 	rpcCall := &rpc{
@@ -422,7 +418,7 @@ func TestTransport_HandlePong_Should_find_pending_call_and_send_incoming_packet_
 	}
 
 	transport := Transport{
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 	}
 	transport.pendingCalls[kadeID] = rpcCall
 
@@ -445,7 +441,7 @@ func TestTransport_HandlePong_Should_cancel_call_with_error_if_time_is_out(t *te
 	}
 
 	transport := Transport{
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 	}
 	transport.pendingCalls[kadeID] = rpcCall
 
@@ -459,7 +455,7 @@ func TestTransport_HandlePong_Should_cancel_call_with_error_if_time_is_out(t *te
 }
 
 func TestTransport_HandlePong_Should_return_error_if_can_node_find_rpc_call_by_id(t *testing.T) {
-	newID := kademlia.ID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	newID := node.ID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 
 	rpcCall := &rpc{
 		requestID: []byte("13123123"),
@@ -472,7 +468,7 @@ func TestTransport_HandlePong_Should_return_error_if_can_node_find_rpc_call_by_i
 	}
 
 	transport := Transport{
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 	}
 	transport.pendingCalls[kadeID] = rpcCall
 
@@ -492,7 +488,7 @@ func TestTransport_HandlePong_Should_return_error_if_can_not_validate_incoming_p
 	}
 
 	transport := Transport{
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 	}
 	transport.pendingCalls[kadeID] = rpcCall
 
@@ -593,7 +589,7 @@ func TestTransport_HandleNetworkPacket_Should_unmarshal_pong_message_and_handle_
 	)
 
 	transport := Transport{
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 	}
 	transport.pendingCalls[kadeID] = rpcCall
 
@@ -607,7 +603,7 @@ func TestTransport_HandleNetworkPacket_Should_return_error_while_processing_pack
 
 	transport := Transport{
 		log:          logger.GetLogger(),
-		pendingCalls: make(map[kademlia.ID]*rpc),
+		pendingCalls: make(map[node.ID]*rpc),
 	}
 
 	transport.handleNetworkPacket(incomingBody, addr)
@@ -671,11 +667,11 @@ func TestTransport_ReadFromNetwork_Should_read_and_process_ping_packet_then_clos
 }
 
 var (
-	id1 = kademlia.ID{
+	id1 = node.ID{
 		0x6F, 0xF7, 0x54, 0x41, 0xE2, 0x6D, 0x9D, 0xE0, 0xEA, 0x9A,
 		0xA7, 0x06, 0xBA, 0x14, 0x95, 0xCF, 0xBE, 0xB3, 0xD7, 0x87,
 	}
-	id2 = kademlia.ID{
+	id2 = node.ID{
 		0x47, 0xB3, 0x57, 0x03, 0x06, 0x9E, 0xFC, 0xC6, 0xC6, 0xF3,
 		0xAC, 0x28, 0x06, 0x52, 0x32, 0xDF, 0x0A, 0x3B, 0xD9, 0x17,
 	}
@@ -685,8 +681,8 @@ var (
 func TestTransport_ValidateNode(t *testing.T) {
 	var tt = []struct {
 		name      string
-		self      kademlia.ID
-		incoming  kademlia.ID
+		self      node.ID
+		incoming  node.ID
 		distances []uint
 		expected  error
 	}{
@@ -719,7 +715,7 @@ func TestTransport_ValidateNode(t *testing.T) {
 	}
 }
 
-var id3 = kademlia.ID{
+var id3 = node.ID{
 	0x03, 0xD0, 0xE3, 0x2E, 0x96, 0x30, 0x10, 0x96, 0x64, 0xC8,
 	0x2E, 0x49, 0xA6, 0x7F, 0x80, 0x15, 0x25, 0x08, 0x17, 0x78,
 }
@@ -730,14 +726,14 @@ func TestTransport_ConsumeNode_Should_receive_all_nodes_with_two_incoming_packet
 	}
 
 	rpcCall := &rpc{
-		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		self:  node.NewNodeWithID(id3, addr),
 		resCh: make(chan Packet, 1),
 	}
 
 	reqID := []byte("1111")
-	expectedNodes := []*node.Node{
-		node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
-		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	expectedNodes := []*Node{
+		WrapNode(node.NewNodeWithID(id1, addr)),
+		WrapNode(node.NewNodeWithID(id2, addr)),
 	}
 	nodesList := &NodesList{
 		ReqID: reqID,
@@ -764,7 +760,7 @@ func TestTransport_ConsumeNodes_Should_return_error_if_got_wrong_message_type(t 
 	}
 
 	rpcCall := &rpc{
-		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		self:  node.NewNodeWithID(id3, addr),
 		resCh: make(chan Packet, 1),
 	}
 
@@ -785,20 +781,20 @@ func TestTransport_ConsumeNodes_Should_not_write_nodes_with_id_not_in_distance_p
 
 	rpcCall := &rpc{
 		// we set same id like in one of result nodes.
-		self:  node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
+		self:  node.NewNodeWithID(id1, addr),
 		resCh: make(chan Packet, 1),
 	}
 
 	reqID := []byte("1111")
 	expectedNodes := []*node.Node{
-		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+		node.NewNodeWithID(id2, addr),
 	}
 	nodesList := &NodesList{
 		ReqID: reqID,
 		Count: 1,
-		Nodes: []*node.Node{
-			node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
-			node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+		Nodes: []*Node{
+			WrapNode(node.NewNodeWithID(id1, addr)),
+			WrapNode(node.NewNodeWithID(id2, addr)),
 		},
 	}
 
@@ -820,14 +816,14 @@ func TestTransport_ConsumeNodes_Should_not_write_nodes_if_it_already_seen(t *tes
 	}
 
 	rpcCall := &rpc{
-		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		self:  node.NewNodeWithID(id3, addr),
 		resCh: make(chan Packet, 1),
 	}
 
 	reqID := []byte("1111")
-	expectedNodes := []*node.Node{
-		node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
-		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	expectedNodes := []*Node{
+		WrapNode(node.NewNodeWithID(id1, addr)),
+		WrapNode(node.NewNodeWithID(id2, addr)),
 	}
 	nodesList := &NodesList{
 		ReqID: reqID,
@@ -854,7 +850,7 @@ func TestTransport_ConsumeNodes_Should_return_error_if_got_error_in_err_channel(
 	}
 
 	rpcCall := &rpc{
-		self:  node.WrapNode(kademlia.NewNodeWithID(id3, addr)),
+		self:  node.NewNodeWithID(id3, addr),
 		errCh: make(chan error, 1),
 	}
 
@@ -876,10 +872,10 @@ func TestTransport_FindNode_Should_return_nodes_with_requested_distance(t *testi
 		cancelCallCh: make(chan *rpc, 1),
 	}
 
-	n := node.WrapNode(kademlia.NewNodeWithID(id3, addr))
-	expectedNodes := []*node.Node{
-		node.WrapNode(kademlia.NewNodeWithID(id1, addr)),
-		node.WrapNode(kademlia.NewNodeWithID(id2, addr)),
+	n := node.NewNodeWithID(id3, addr)
+	expectedNodes := []*Node{
+		WrapNode(node.NewNodeWithID(id1, addr)),
+		WrapNode(node.NewNodeWithID(id2, addr)),
 	}
 
 	nodesList := &NodesList{
@@ -908,21 +904,22 @@ func TestTransport_PackNodesByGroups_Should_separate_all_incoming_nodes_to_group
 		incomingNodes = []*node.Node{
 			testNode, testNode, testNode, testNode, testNode, testNode, testNode, testNode,
 		}
+		wrappedTestNode = WrapNode(testNode)
 	)
 
 	expected := []*NodesList{
 		{
 			ReqID: incomingID,
 			Count: 2,
-			Nodes: []*node.Node{
-				testNode, testNode, testNode, testNode, testNode,
+			Nodes: []*Node{
+				wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode,
 			},
 		},
 		{
 			ReqID: incomingID,
 			Count: 2,
-			Nodes: []*node.Node{
-				testNode, testNode, testNode,
+			Nodes: []*Node{
+				wrappedTestNode, wrappedTestNode, wrappedTestNode,
 			},
 		},
 	}
@@ -939,14 +936,15 @@ func TestTransport_PackNodesByGroups_Should_create_only_one_packet_because_count
 		incomingNodes = []*node.Node{
 			testNode, testNode, testNode, testNode,
 		}
+		wrappedTestNode = WrapNode(testNode)
 	)
 
 	expected := []*NodesList{
 		{
 			ReqID: incomingID,
 			Count: 1,
-			Nodes: []*node.Node{
-				testNode, testNode, testNode, testNode,
+			Nodes: []*Node{
+				wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode,
 			},
 		},
 	}
@@ -1001,7 +999,7 @@ func TestTransport_FindNodesByDistance_Should_return_up_to_sixteen_nodes_by_prov
 func TestTransport_FindNodesByDistance_Should_finds_local_node_if_incoming_distances_has_zero(t *testing.T) {
 	incomingDistances := []uint{159, 0}
 
-	iam := node.WrapNode(kademlia.NewNode(addr))
+	iam := node.NewNode(addr)
 	expected := []*node.Node{
 		testNode, testNode, testNode, testNode,
 		iam,
@@ -1096,33 +1094,35 @@ func TestTransport_HandleFindNode_Should_return_one_empty_packet_if_by_provided_
 }
 
 func TestTransport_HandleFindNode_Should_send_two_packets_back_to_requester(t *testing.T) {
+	wrappedTestNode := WrapNode(testNode)
+
 	expectedNodeLists := []*NodesList{
 		{
 			ReqID: []byte("123"),
 			Count: 4,
-			Nodes: []*node.Node{
-				testNode, testNode, testNode, testNode, testNode,
+			Nodes: []*Node{
+				wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode,
 			},
 		},
 		{
 			ReqID: []byte("123"),
 			Count: 4,
-			Nodes: []*node.Node{
-				testNode, testNode, testNode, testNode, testNode,
+			Nodes: []*Node{
+				wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode,
 			},
 		},
 		{
 			ReqID: []byte("123"),
 			Count: 4,
-			Nodes: []*node.Node{
-				testNode, testNode, testNode, testNode, testNode,
+			Nodes: []*Node{
+				wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode, wrappedTestNode,
 			},
 		},
 		{
 			ReqID: []byte("123"),
 			Count: 4,
-			Nodes: []*node.Node{
-				testNode,
+			Nodes: []*Node{
+				wrappedTestNode,
 			},
 		},
 	}

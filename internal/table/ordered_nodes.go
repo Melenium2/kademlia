@@ -3,7 +3,7 @@ package table
 import (
 	"sort"
 
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/node"
 )
 
 // orderedNodes stores Node's by their distance from our self Node.

@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	node "github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/node"
 	mock "github.com/stretchr/testify/mock"
 )
 

@@ -7,10 +7,10 @@ import (
 	"net"
 	"testing"
 
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/conn"
-	"github.com/Melenium2/kademlia/internal/table/kbuckets"
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/conn"
+	"github.com/Melenium2/kademlia/internal/kbuckets"
+	"github.com/Melenium2/kademlia/internal/node"
+
 	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
@@ -46,13 +46,13 @@ func udpConn(addr *net.UDPAddr) (*net.UDPConn, error) {
 	return c, nil
 }
 
-func bootstrapNodes(ports ...int) []*kademlia.Node {
-	nodes := make([]*kademlia.Node, len(ports))
+func bootstrapNodes(ports ...int) []*node.Node {
+	nodes := make([]*node.Node, len(ports))
 
 	for i := 0; i < len(ports); i++ {
 		addr, _ := resolveAddr(ports[i])
 
-		nodes[i] = kademlia.NewNode(addr)
+		nodes[i] = node.NewNode(addr)
 	}
 
 	return nodes
@@ -60,7 +60,7 @@ func bootstrapNodes(ports ...int) []*kademlia.Node {
 
 func initNetwork(ctx context.Context, nodesCount int) error {
 	usedPorts := make(map[int]struct{}, nodesCount)
-	nodes := make([]*kademlia.Node, 0, nodesCount)
+	nodes := make([]*node.Node, 0, nodesCount)
 	stores := make(map[int]*kbuckets.KBuckets, nodesCount)
 
 	for i := 0; i < nodesCount; i++ {
@@ -75,11 +75,11 @@ func initNetwork(ctx context.Context, nodesCount int) error {
 			return err
 		}
 
-		selfNode := kademlia.NewNode(addr)
+		selfNode := node.NewNode(addr)
 
 		nodes = append(nodes, selfNode)
 
-		store := kbuckets.New(node.WrapNode(selfNode), NBuckets, BucketMinDistance, BucketSize)
+		store := kbuckets.New(selfNode, NBuckets, BucketMinDistance, BucketSize)
 		stores[port] = store
 
 		transport(ctx, c, store)
@@ -87,10 +87,8 @@ func initNetwork(ctx context.Context, nodesCount int) error {
 		usedPorts[port] = struct{}{}
 	}
 
-	wrapped := node.WrapNodes(nodes)
-
 	for _, buckets := range stores {
-		buckets.Add(wrapped)
+		buckets.Add(nodes)
 	}
 
 	return nil
@@ -108,7 +106,7 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 	}
 
 	addr, _ := resolveAddr(15000)
-	self := kademlia.NewNode(addr)
+	self := node.NewNode(addr)
 	c, err := udpConn(addr)
 	require.NoError(t, err)
 

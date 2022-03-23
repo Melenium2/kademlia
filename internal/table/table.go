@@ -3,10 +3,10 @@ package table
 import (
 	"context"
 
-	"github.com/Melenium2/kademlia"
-	"github.com/Melenium2/kademlia/internal/table/conn"
-	"github.com/Melenium2/kademlia/internal/table/kbuckets"
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/conn"
+	"github.com/Melenium2/kademlia/internal/kbuckets"
+	"github.com/Melenium2/kademlia/internal/node"
+
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
@@ -16,14 +16,14 @@ const (
 	// BucketSize is Kademlia single bucket size.
 	BucketSize = 16
 
-	HashBits          = len(kademlia.ID{}) * 8 // Length of hash in bits. Now this is length of SHA-1, 160 bits.
-	NBuckets          = HashBits / 15          // Number of buckets.
-	BucketMinDistance = HashBits - NBuckets    // Log distance of the closest bucket.
+	HashBits          = len(node.ID{}) * 8  // Length of hash in bits. Now this is length of SHA-1, 160 bits.
+	NBuckets          = HashBits / 15       // Number of buckets.
+	BucketMinDistance = HashBits - NBuckets // Log distance of the closest bucket.
 
 )
 
 type Config struct {
-	BootNodes []*kademlia.Node
+	BootNodes []*node.Node
 }
 
 type Table struct {
@@ -31,30 +31,28 @@ type Table struct {
 	buckets   *kbuckets.KBuckets
 
 	self           *node.Node
-	bootstrapNodes []*kademlia.Node
+	bootstrapNodes []*node.Node
 
 	log logger.Logger
 }
 
-func NewTable(cfg *Config, self *kademlia.Node, connection conn.UDPConn) *Table {
-	wrappedSelf := node.WrapNode(self)
-
+func NewTable(cfg *Config, self *node.Node, connection conn.UDPConn) *Table {
 	t := &Table{
-		self:           wrappedSelf,
-		buckets:        kbuckets.New(wrappedSelf, NBuckets, BucketMinDistance, BucketSize),
+		self:           self,
+		buckets:        kbuckets.New(self, NBuckets, BucketMinDistance, BucketSize),
 		bootstrapNodes: cfg.BootNodes,
 		log:            logger.GetLogger(),
 	}
 
 	t.transport = conn.NewTransport(connection, t.buckets)
-	go t.transport.Loop(context.Background())
+	go t.transport.Loop(context.Background()) // nolint:errcheck
 
 	return t
 }
 
 func (t *Table) Discover() {
 	lookupMechanism := newLookup(t.transport, t.self, lookupConfig{
-		Bootstrap: node.WrapNodes(t.bootstrapNodes),
+		Bootstrap: t.bootstrapNodes,
 	})
 
 	nodes, err := lookupMechanism.Discover()

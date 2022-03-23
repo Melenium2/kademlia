@@ -6,8 +6,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"net"
+	"time"
 
-	"github.com/Melenium2/kademlia/internal/table/node"
+	"github.com/Melenium2/kademlia/internal/node"
 )
 
 const (
@@ -87,10 +88,26 @@ func (fn *FindNodes) IAm() byte {
 	return FindNodesMessage
 }
 
+type Node struct {
+	ID      []byte    `json:"id,omitempty"`
+	IP      net.IP    `json:"ip,omitempty"`
+	UDP     int       `json:"udp,omitempty"`
+	AddedAt time.Time `json:"added_at"`
+}
+
+func WrapNode(node *node.Node) *Node {
+	return &Node{
+		ID:      node.ID().Bytes(),
+		IP:      node.IP(),
+		UDP:     node.UDPPort(),
+		AddedAt: node.AddedTime(),
+	}
+}
+
 type NodesList struct {
-	ReqID []byte
-	Count uint8
-	Nodes []*node.Node
+	ReqID []byte  `json:"req_id,omitempty"`
+	Count uint8   `json:"count,omitempty"`
+	Nodes []*Node `json:"nodes,omitempty"`
 }
 
 func (fn *NodesList) SetRequestID(id []byte) {
