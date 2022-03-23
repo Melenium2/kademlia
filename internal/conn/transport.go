@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	Timeout                = 1 * time.Minute
+	Timeout                = 1 * time.Second
 	MaxMessageSize         = 1000
 	TotalNodesPacketsLimit = 5
 	TotalNodeSendLimit     = 16
