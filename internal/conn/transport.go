@@ -411,7 +411,7 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 // Another case where error will be logged, if type of packet unknown.
 // nolint:cyclop
 func (t *Transport) handleNetworkPacket(body []byte, addr *net.UDPAddr) {
-	t.log.Infof("%s", body)
+	t.log.Debugf("incoming body\n%s", hex.Dump(body))
 
 	packet, id, err := Unmarshal(body)
 	if err != nil {

@@ -95,8 +95,6 @@ func initNetwork(ctx context.Context, nodesCount int) error {
 }
 
 func TestTable_Discover_Should_find_nodes(t *testing.T) {
-	t.Skip("having issue with current test case, skip")
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
