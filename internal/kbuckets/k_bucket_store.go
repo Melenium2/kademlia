@@ -26,7 +26,7 @@ func New(self *node.Node, storageSize, minDist, maxBucketSize int) *KBuckets {
 		self:          self,
 		mutex:         &sync.RWMutex{},
 		maxBucketSize: maxBucketSize,
-		buckets:       make([]*Bucket, storageSize+1),
+		buckets:       make([]*Bucket, storageSize),
 		minDistance:   minDist,
 	}
 
@@ -42,7 +42,7 @@ func (kb *KBuckets) WhoAmI() *node.Node {
 }
 
 func (kb *KBuckets) BucketAtDistance(dist int) *Bucket {
-	if dist < kb.minDistance {
+	if dist <= kb.minDistance {
 		return kb.buckets[0]
 	}
 
