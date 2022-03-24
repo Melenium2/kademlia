@@ -50,5 +50,6 @@ linters-settings:
     go: "1.17"
     checks: ["all", "-ST1017"] # ST1017 - Yoda
 run:
+  go: 1.18
   skip-files:
     - "_test.go"
