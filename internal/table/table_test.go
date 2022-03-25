@@ -11,7 +11,6 @@ import (
 	"github.com/Melenium2/kademlia/internal/kbuckets"
 	"github.com/Melenium2/kademlia/internal/node"
 
-	"github.com/Melenium2/kademlia/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,9 +20,7 @@ func transport(ctx context.Context, c *net.UDPConn, buckets conn.KBuckets) *conn
 	newTransport := conn.NewTransport(c, buckets)
 
 	go func() {
-		if err := newTransport.Loop(ctx); err != nil {
-			logger.GetLogger().Error(err.Error())
-		}
+		_ = newTransport.Loop(ctx)
 	}()
 
 	return newTransport
@@ -98,7 +95,7 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := initNetwork(ctx, 100)
+	err := initNetwork(ctx, 300)
 	require.NoError(t, err)
 
 	cfg := Config{
