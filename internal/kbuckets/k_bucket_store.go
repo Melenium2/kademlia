@@ -2,7 +2,6 @@ package kbuckets
 
 import (
 	"sync"
-	"time"
 
 	"github.com/Melenium2/kademlia/internal/node"
 )
@@ -99,6 +98,5 @@ func (kb *KBuckets) add(node *node.Node) {
 		return
 	}
 
-	node.AddedAt(time.Now())
 	bucket.Entries = append(bucket.Entries, node)
 }
