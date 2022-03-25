@@ -5,9 +5,11 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 	"testing"
 	"time"
 
+	"bou.ke/monkey"
 	"github.com/Melenium2/kademlia/internal/conn/mocks"
 	"github.com/Melenium2/kademlia/internal/kbuckets"
 	"github.com/Melenium2/kademlia/internal/node"
@@ -28,7 +30,20 @@ var (
 		IP:    addr.IP,
 		Port:  uint16(addr.Port),
 	}
+	now = time.Date(2022, 3, 25, 9, 20, 0, 0, time.UTC)
 )
+
+func TestMain(t *testing.M) {
+	monkey.Patch(time.Now, func() time.Time {
+		return now
+	})
+
+	code := t.Run()
+
+	monkey.Unpatch(time.Now)
+
+	os.Exit(code)
+}
 
 func TestConsume_Should_consume_new_packet_from_result_channel(t *testing.T) {
 	var (
@@ -723,8 +738,8 @@ var (
 		0x2E, 0x49, 0xA6, 0x7F, 0x80, 0x15, 0x25, 0x08, 0x17, 0x78,
 	}
 	expectedNodes = []*node.Node{
-		node.NewNodeWithID(id1, addr),
-		node.NewNodeWithID(id2, addr),
+		node.NewNodeFromScratch(id1, addr.IP, addr.Port, now),
+		node.NewNodeFromScratch(id2, addr.IP, addr.Port, now),
 	}
 	expectedWrappedNodes = []*Node{
 		WrapNode(node.NewNodeWithID(id1, addr)),
@@ -796,7 +811,7 @@ func TestTransport_ConsumeNodes_Should_not_write_nodes_with_id_not_in_distance_p
 
 	reqID := []byte("1111")
 	expectedNodes := []*node.Node{
-		node.NewNodeWithID(id2, addr),
+		node.NewNodeFromScratch(id2, addr.IP, addr.Port, now),
 	}
 	nodesList := &NodesList{
 		ReqID: reqID,

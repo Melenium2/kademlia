@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/Melenium2/kademlia/internal/kbuckets"
@@ -26,16 +27,19 @@ const (
 type rpc struct {
 	requestID []byte
 	self      *node.Node
-	timeout   *time.Timer
-	request   Packet
-	resCh     chan Packet
-	errCh     chan error
+
+	mutex   sync.Mutex
+	timeout *time.Timer
+
+	request Packet
+	resCh   chan Packet
+	errCh   chan error
 }
 
 func (r *rpc) ApplyTimeout(timeout time.Duration) {
-	if r.timeout != nil {
-		r.timeout.Stop()
-	}
+	r.mutex.Lock()
+
+	r.stopTimeout()
 
 	var (
 		timer *time.Timer
@@ -49,10 +53,19 @@ func (r *rpc) ApplyTimeout(timeout time.Duration) {
 
 	r.timeout = timer
 
+	r.mutex.Unlock()
+
 	close(done)
 }
 
 func (r *rpc) StopTimeout() bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	return r.stopTimeout()
+}
+
+func (r *rpc) stopTimeout() bool {
 	if r.timeout != nil {
 		return r.timeout.Stop()
 	}
@@ -99,6 +112,8 @@ type Transport struct {
 
 	// Messages queue we need to sendNext.
 	callQueue map[node.ID][]*rpc
+
+	mutex sync.RWMutex
 	// Map with messages already sent.
 	pendingCalls map[node.ID]*rpc
 
@@ -156,12 +171,20 @@ func (t *Transport) Loop(ctx context.Context) error {
 // function just return without any message.
 func (t *Transport) nextPending(id node.ID) {
 	queue := t.callQueue[id]
+
+	t.mutex.Lock()
+
 	if len(queue) == 0 || t.pendingCalls[id] != nil {
+		t.mutex.Unlock()
+
 		return
 	}
 
 	call := queue[0]
 	t.pendingCalls[id] = call
+
+	t.mutex.Unlock()
+
 	_ = t.sendNext(call)
 
 	if len(queue) == 1 {
@@ -184,6 +207,9 @@ func (t *Transport) removeFromPending(id node.ID) {
 		call *rpc
 		ok   bool
 	)
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if call, ok = t.pendingCalls[id]; !ok {
 		t.log.Fatal("trying to remove inactive call, this is unreal")
@@ -325,11 +351,12 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 
 				seen[id] = struct{}{}
 
+				now := time.Now()
 				nodes = append(nodes, node.NewNodeFromScratch(
 					node.NewIDFromSlice(nextNode.ID),
 					nextNode.IP,
 					nextNode.UDP,
-					nextNode.AddedAt,
+					now,
 				))
 			}
 
@@ -561,10 +588,16 @@ func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) e
 func (t *Transport) handleIncomingResponse(respType byte, id []byte, p Packet, addr *net.UDPAddr) error {
 	kadeID := node.NewIDFromSlice(id)
 
+	t.mutex.RLock()
+
 	pc, ok := t.pendingCalls[kadeID]
 	if !ok {
+		t.mutex.RUnlock()
+
 		return fmt.Errorf("node with arrived ID not found, got wrong ID")
 	}
+
+	t.mutex.RUnlock()
 
 	selfAddr := &net.UDPAddr{
 		IP:   pc.self.IP(),
