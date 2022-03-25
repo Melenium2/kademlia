@@ -37,15 +37,18 @@ type Table struct {
 }
 
 func NewTable(cfg *Config, self *node.Node, connection conn.UDPConn) *Table {
+	buckets := kbuckets.New(self, NBuckets, BucketMinDistance, BucketSize)
+	transport := conn.NewTransport(connection, buckets)
+
+	go transport.Loop(context.Background()) // nolint:errcheck
+
 	t := &Table{
+		transport:      transport,
 		self:           self,
-		buckets:        kbuckets.New(self, NBuckets, BucketMinDistance, BucketSize),
+		buckets:        buckets,
 		bootstrapNodes: cfg.BootNodes,
 		log:            logger.GetLogger(),
 	}
-
-	t.transport = conn.NewTransport(connection, t.buckets)
-	go t.transport.Loop(context.Background()) // nolint:errcheck
 
 	return t
 }
