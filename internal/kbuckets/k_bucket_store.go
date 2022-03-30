@@ -36,6 +36,23 @@ func New(self *node.Node, storageSize, minDist, maxBucketSize int) *KBuckets {
 	return kb
 }
 
+// FindClosest finds and returns the most closes nodes to provided node.
+func (kb *KBuckets) FindClosest(node *node.Node) []*node.Node {
+	nodes := NewOrderedNodes(node, kb.maxBucketSize)
+
+	kb.mutex.RLock()
+
+	for _, bucket := range kb.buckets {
+		for _, entry := range bucket.Entries {
+			nodes.Add(entry)
+		}
+	}
+
+	kb.mutex.RUnlock()
+
+	return nodes.Nodes()
+}
+
 func (kb *KBuckets) WhoAmI() *node.Node {
 	return kb.self
 }

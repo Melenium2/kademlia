@@ -94,7 +94,7 @@ func TestConsume_Should_save_all_incoming_nodes_from_provided_channel_also_nodes
 		assert.True(t, ok)
 	}
 
-	assert.Equal(t, len(expected), len(l.resultNodes.nodes))
+	assert.Equal(t, len(expected), len(l.resultNodes.Nodes()))
 
 	sort.Slice(expected, func(i, j int) bool {
 		return node.DistanceCmp(self.ID(), expected[i].ID(), expected[j].ID()) < 0

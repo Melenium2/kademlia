@@ -1,6 +1,7 @@
 package table
 
 import (
+	"github.com/Melenium2/kademlia/internal/kbuckets"
 	"github.com/Melenium2/kademlia/internal/node"
 
 	"github.com/Melenium2/kademlia/pkg/logger"
@@ -37,7 +38,7 @@ type lookup struct {
 	seenNodes map[node.ID]struct{}
 	// result of lookup request. This structure will sort nodes
 	// by their distance between self node and other nodes.
-	resultNodes orderedNodes
+	resultNodes kbuckets.OrderedNodes
 	// nodes for initializing lookup process. At least one node needed for
 	// starting process.
 	bootstrap []*node.Node
@@ -54,7 +55,7 @@ func newLookup(finder finder, self *node.Node, cfg lookupConfig) *lookup {
 		selfID:      self.ID(),
 		askedNodes:  make(map[node.ID]struct{}),
 		seenNodes:   make(map[node.ID]struct{}),
-		resultNodes: newOrderedNodes(self, BucketSize),
+		resultNodes: kbuckets.NewOrderedNodes(self, BucketSize),
 		bootstrap:   cfg.Bootstrap,
 	}
 }
@@ -141,10 +142,11 @@ func (l *lookup) consume(resCh chan []*node.Node, errCh chan error) error {
 // contains the closest nodes to our self Node.
 func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 	for l.started >= 0 {
+		nodes := l.resultNodes.Nodes()
 		// we loop over all nodes and query it for closest nodes. We can not
 		// run more parallel scans than Alpha (3).
-		for i := 0; i < len(l.resultNodes.Nodes()) && l.started < Alpha; i++ {
-			curr := l.resultNodes.nodes[i]
+		for i := 0; i < len(nodes) && l.started < Alpha; i++ {
+			curr := nodes[i]
 
 			if _, ok := l.askedNodes[curr.ID()]; ok {
 				continue

@@ -3,6 +3,7 @@ package kbuckets_test
 import (
 	"net"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -140,6 +141,49 @@ func TestKBuckets_Add_Should_concurrently_accept_buckets(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		go func() {
 			buckets.Add(nodes)
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestKBuckets_FindClosest_Should_return_closest_nodes_to_provided_node(t *testing.T) {
+	buckets := kbuckets.New(selfNode, 15, 150, 4)
+
+	expected := []*node.Node{
+		node.NewNode(addr), node.NewNode(addr),
+		node.NewNode(addr), node.NewNode(addr),
+	}
+
+	buckets.Add(expected)
+
+	closest := buckets.FindClosest(selfNode)
+
+	sort.Slice(expected, func(i, j int) bool {
+		return node.DistanceCmp(selfNode.ID(), expected[i].ID(), expected[j].ID()) < 0
+	})
+
+	assert.Equal(t, expected, closest)
+}
+
+func TestKBuckets_FindClosest_Should_concurrently_requests_to_kbucket_for_closest_nodes(t *testing.T) {
+	buckets := kbuckets.New(selfNode, 15, 150, 3)
+
+	nodes := []*node.Node{
+		node.NewNode(addr), node.NewNode(addr),
+		node.NewNode(addr), node.NewNode(addr),
+	}
+
+	buckets.Add(nodes)
+
+	var wg sync.WaitGroup
+
+	wg.Add(50)
+
+	for i := 0; i < 50; i++ {
+		go func() {
+			buckets.FindClosest(selfNode)
 			wg.Done()
 		}()
 	}

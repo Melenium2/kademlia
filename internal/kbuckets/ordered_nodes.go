@@ -1,4 +1,4 @@
-package table
+package kbuckets
 
 import (
 	"sort"
@@ -6,10 +6,10 @@ import (
 	"github.com/Melenium2/kademlia/internal/node"
 )
 
-// orderedNodes stores Node's by their distance from our self Node.
+// OrderedNodes stores Node's by their distance from our self Node.
 //
 // Node list has limited count. Limit is set by constructor.
-type orderedNodes struct {
+type OrderedNodes struct {
 	// list of nodes.
 	nodes []*node.Node
 	// maximum count of stored nodes.
@@ -18,9 +18,9 @@ type orderedNodes struct {
 	self *node.Node
 }
 
-// newOrderedNodes create new instance of Node's storage.
-func newOrderedNodes(self *node.Node, limit int) orderedNodes {
-	return orderedNodes{
+// NewOrderedNodes create new instance of Node's storage.
+func NewOrderedNodes(self *node.Node, limit int) OrderedNodes {
+	return OrderedNodes{
 		self:       self,
 		nodes:      make([]*node.Node, 0, limit),
 		nodesLimit: limit,
@@ -29,7 +29,7 @@ func newOrderedNodes(self *node.Node, limit int) orderedNodes {
 
 // Add new Node to position in Node's slice by distance between
 // provided Node and self Node.
-func (on *orderedNodes) Add(newNode *node.Node) {
+func (on *OrderedNodes) Add(newNode *node.Node) {
 	index := sort.Search(len(on.nodes), func(i int) bool {
 		return node.DistanceCmp(on.self.ID(), on.nodes[i].ID(), newNode.ID()) > 0
 	})
@@ -49,6 +49,6 @@ func (on *orderedNodes) Add(newNode *node.Node) {
 	}
 }
 
-func (on *orderedNodes) Nodes() []*node.Node {
+func (on *OrderedNodes) Nodes() []*node.Node {
 	return on.nodes
 }
