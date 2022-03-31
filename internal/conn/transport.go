@@ -578,7 +578,7 @@ func (t *Transport) packNodesByGroups(id []byte, nodes []*node.Node) []*NodesLis
 }
 
 // handleNodeList message. If message is valid trying to cancel rpc call.
-func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) error { // nolint:interfacer
+func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) error {
 	return t.handleIncomingResponse(NodesListMessage, id, p, addr)
 }
 
