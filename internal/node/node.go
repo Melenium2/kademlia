@@ -1,7 +1,6 @@
 package node
 
 import (
-	"bytes"
 	"net"
 	"time"
 
@@ -90,6 +89,18 @@ func (n Node) UDPPort() int {
 	return n.udp
 }
 
-func (n *Node) Compare(with []byte) bool {
-	return bytes.Equal(n.id.Bytes(), with)
+func (n *Node) IsEqual(node *Node) bool {
+	if n.id != node.id {
+		return false
+	}
+
+	if !n.ip.Equal(node.ip) {
+		return false
+	}
+
+	if n.udp != node.udp {
+		return false
+	}
+
+	return true
 }
