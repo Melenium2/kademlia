@@ -157,6 +157,7 @@ func (kb *KBuckets) delete(bucket *Bucket, node *node.Node) int {
 	for i := range bucket.Entries {
 		if bucket.Entries[i].IsEqual(node) {
 			bucket.Entries = append(bucket.Entries[:i], bucket.Entries[i+1:]...)
+
 			return i
 		}
 	}
