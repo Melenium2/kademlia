@@ -8,9 +8,12 @@ import (
 	"testing"
 
 	"github.com/Melenium2/kademlia/internal/conn"
+	"github.com/Melenium2/kademlia/internal/conn/mocks"
 	"github.com/Melenium2/kademlia/internal/kbuckets"
 	"github.com/Melenium2/kademlia/internal/node"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,4 +113,60 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 	table := NewTable(&cfg, self, c)
 
 	table.Discover()
+}
+
+var fakeConn = func() *mocks.UDPConn {
+	fake := &mocks.UDPConn{}
+	fake.On("ReadFromUDP", mock.IsType([]byte{})).Return(0, &net.UDPAddr{}, nil)
+
+	return fake
+}
+
+func TestTable_NodeValidation_Should_ping_to_found_node_and_move_it_to_front(t *testing.T) {
+
+}
+
+func TestTable_NodeValidation_Should_do_nothing_if_can_not_found_last_wrote_node_in_buckets(t *testing.T) {
+
+}
+
+func TestTable_NodeValidation_Should_remove_node_from_bucket_if_can_not_ping_it(t *testing.T) {
+
+}
+
+func TestTable_DeleteLastNode_Should_remove_node_with_provided_id_from_bucket_at_specific_index(t *testing.T) {
+	var (
+		selfNode  = node.NewNode(&net.UDPAddr{})
+		table     = NewTable(&Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
+		firstNode = node.NewNode(&net.UDPAddr{Port: 5222})
+	)
+
+	table.buckets.Add([]*node.Node{
+		node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}),
+		node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}),
+		firstNode,
+	})
+
+	// find bucket which contains firstNode.
+	bucketIndex := node.LogDistance(selfNode.ID(), firstNode.ID()) - BucketMinDistance - 1
+
+	deleted := table.deleteLastNode(bucketIndex, firstNode)
+	assert.True(t, deleted)
+}
+
+func TestTable_DeleteLastNode_Should_do_nothing_if_bucket_at_provided_index_equals_to_nil(t *testing.T) {
+	var (
+		selfNode  = node.NewNode(&net.UDPAddr{})
+		table     = NewTable(&Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
+		firstNode = node.NewNode(&net.UDPAddr{Port: 5222})
+	)
+
+	table.buckets.Add([]*node.Node{
+		node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}),
+		node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}),
+		firstNode,
+	})
+
+	deleted := table.deleteLastNode(0, firstNode)
+	assert.False(t, deleted)
 }
