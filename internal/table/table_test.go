@@ -134,7 +134,7 @@ func TestTable_NodeValidation_Should_remove_node_from_bucket_if_can_not_ping_it(
 
 }
 
-func TestTable_DeleteLastNode_Should_remove_node_with_provided_id_from_bucket_at_specific_index(t *testing.T) {
+func TestTable_Delete_last_node(t *testing.T) {
 	var (
 		selfNode  = node.NewNode(&net.UDPAddr{})
 		table     = NewTable(&Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
@@ -147,26 +147,16 @@ func TestTable_DeleteLastNode_Should_remove_node_with_provided_id_from_bucket_at
 		firstNode,
 	})
 
-	// find bucket which contains firstNode.
-	bucketIndex := node.LogDistance(selfNode.ID(), firstNode.ID()) - BucketMinDistance - 1
+	t.Run("Should remove node with provided id from bucket at specific index", func(t *testing.T) {
+		// find bucket which contains firstNode.
+		bucketIndex := node.LogDistance(selfNode.ID(), firstNode.ID()) - BucketMinDistance - 1
 
-	deleted := table.deleteLastNode(bucketIndex, firstNode)
-	assert.True(t, deleted)
-}
-
-func TestTable_DeleteLastNode_Should_do_nothing_if_bucket_at_provided_index_equals_to_nil(t *testing.T) {
-	var (
-		selfNode  = node.NewNode(&net.UDPAddr{})
-		table     = NewTable(&Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
-		firstNode = node.NewNode(&net.UDPAddr{Port: 5222})
-	)
-
-	table.buckets.Add([]*node.Node{
-		node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}),
-		node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}), node.NewNode(&net.UDPAddr{}),
-		firstNode,
+		deleted := table.deleteLastNode(bucketIndex, firstNode)
+		assert.True(t, deleted)
 	})
 
-	deleted := table.deleteLastNode(0, firstNode)
-	assert.False(t, deleted)
+	t.Run("Should do nothing if bucket at provided index equals to nil", func(t *testing.T) {
+		deleted := table.deleteLastNode(0, firstNode)
+		assert.False(t, deleted)
+	})
 }
