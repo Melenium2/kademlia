@@ -126,6 +126,7 @@ func (t *Table) NodeValidation() {
 		bucket := t.buckets.BucketAtIndex(index)
 
 		if len(bucket.Entries) > 0 {
+			// take oldest wrote entry.
 			bucketNode = bucket.Entries[len(bucket.Entries)-1]
 			bucketIndex = index
 
