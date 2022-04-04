@@ -153,16 +153,23 @@ func (t *Table) NodeValidation() {
 	t.buckets.MoveFront(bucketIndex, bucketNode)
 }
 
-func (t *Table) deleteLastNode(bucketIndex int, node *node.Node) {
+func (t *Table) deleteLastNode(bucketIndex int, node *node.Node) bool {
 	bucket := t.buckets.BucketAtIndex(bucketIndex)
+
+	if bucket == nil || len(bucket.Entries) == 0 {
+		return false
+	}
+
 	last := bucket.Entries[len(bucket.Entries)-1]
 
 	// if bucket already empty, or last node not equals to provided node, return from func.
-	if len(bucket.Entries) == 0 || last.ID() != node.ID() {
-		return
+	if last.ID() != node.ID() {
+		return false
 	}
 
 	t.buckets.Delete(bucketIndex, node)
+
+	return true
 }
 
 func (t *Table) DiscoverNeighbors() {}
