@@ -134,7 +134,7 @@ func TestTable_NodeValidation_Should_remove_node_from_bucket_if_can_not_ping_it(
 
 }
 
-func TestTable_Delete_last_node(t *testing.T) {
+func TestTable_DeleteLastNode(t *testing.T) {
 	var (
 		selfNode  = node.NewNode(&net.UDPAddr{})
 		table     = NewTable(&Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
