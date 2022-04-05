@@ -424,6 +424,7 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 			if err != nil {
 				t.log.Errorf("UDP read error, closing for read network cycle, reason %s", err)
 
+				// TODO need to remove error from this func or read cycle will interuct after first error.
 				return
 			}
 
