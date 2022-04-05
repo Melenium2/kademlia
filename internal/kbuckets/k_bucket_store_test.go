@@ -190,3 +190,11 @@ func TestKBuckets_FindClosest_Should_concurrently_requests_to_kbucket_for_closes
 
 	wg.Wait()
 }
+
+func TestKBuckets_MoveFront_Should_move_node_to_front_of_bucket(t *testing.T) {
+
+}
+
+func TestKBuckets_MoveFront_Should_do_nothing_if_node_at_provided_bucket_not_found(t *testing.T) {
+
+}
