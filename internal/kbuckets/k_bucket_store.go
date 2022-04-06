@@ -132,7 +132,7 @@ func (kb *KBuckets) MoveFront(bucketIndex int, node *node.Node) bool {
 
 	bucket := kb.BucketAtIndex(bucketIndex)
 
-	atIndex := kb.delete(bucket, node)
+	atIndex := kb.findIndex(bucket, node)
 
 	if atIndex < 0 {
 		return false
@@ -154,13 +154,27 @@ func (kb *KBuckets) Delete(bucketIndex int, node *node.Node) int {
 }
 
 func (kb *KBuckets) delete(bucket *Bucket, node *node.Node) int {
+	index := kb.findIndex(bucket, node)
+
+	if index < 0 {
+		return index
+	}
+
+	bucket.Entries = append(bucket.Entries[:index], bucket.Entries[index+1:]...)
+
+	return index
+}
+
+func (kb *KBuckets) findIndex(bucket *Bucket, node *node.Node) int {
+	var atIndex = -1
+
 	for i := range bucket.Entries {
 		if bucket.Entries[i].IsEqual(node) {
-			bucket.Entries = append(bucket.Entries[:i], bucket.Entries[i+1:]...)
+			atIndex = i
 
-			return i
+			break
 		}
 	}
 
-	return -1
+	return atIndex
 }
