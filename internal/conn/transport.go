@@ -335,7 +335,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 			}
 
 			for _, nextNode := range packetNodes.Nodes {
-				id := node.NewIDFromSlice(nextNode.ID)
+				id := node.NewIDSlice(nextNode.ID)
 
 				if err = t.validateNode(call.self.ID(), id, distances); err != nil {
 					t.log.Warnf("node with ID %d is invalid, reason %s", id.Bytes(), err)
@@ -353,7 +353,7 @@ func (t *Transport) consumeNodes(call *rpc, distances []uint) ([]*node.Node, err
 
 				now := time.Now()
 				nodes = append(nodes, node.NewNodeFromScratch(
-					node.NewIDFromSlice(nextNode.ID),
+					node.NewIDSlice(nextNode.ID),
 					nextNode.IP,
 					nextNode.UDP,
 					now,
@@ -486,7 +486,7 @@ func (t *Transport) handlePing(id []byte, ping *Ping, addr *net.UDPAddr) error {
 		Port:  uint16(addr.Port),
 	}
 
-	if err := t.send(node.NewIDFromSlice(id), pong, addr); err != nil {
+	if err := t.send(node.NewIDSlice(id), pong, addr); err != nil {
 		return fmt.Errorf("can not send pong back to ping request, request ID %s, reason %w", ping.ReqID, err)
 	}
 
@@ -504,7 +504,7 @@ func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) e
 	nodes := t.findNodesByDistance(p.Distances)
 
 	if len(nodes) == 0 {
-		if err := t.send(node.NewIDFromSlice(id), &NodesList{ReqID: p.ReqID, Count: 1}, addr); err != nil {
+		if err := t.send(node.NewIDSlice(id), &NodesList{ReqID: p.ReqID, Count: 1}, addr); err != nil {
 			return fmt.Errorf("can not send back NodesList, reason %w", err)
 		}
 	}
@@ -512,7 +512,7 @@ func (t *Transport) handleFindNode(id []byte, p *FindNodes, addr *net.UDPAddr) e
 	groups := t.packNodesByGroups(p.ReqID, nodes)
 
 	for _, group := range groups {
-		if err := t.send(node.NewIDFromSlice(id), group, addr); err != nil {
+		if err := t.send(node.NewIDSlice(id), group, addr); err != nil {
 			return fmt.Errorf("can not send back NodesList, reason %w", err)
 		}
 	}
@@ -587,7 +587,7 @@ func (t *Transport) handleNodeList(id []byte, p *NodesList, addr *net.UDPAddr) e
 // find necessary rpc call and validate it with incoming Packet, if it is valid then provide
 // packet to result channel of rpc call.
 func (t *Transport) handleIncomingResponse(respType byte, id []byte, p Packet, addr *net.UDPAddr) error {
-	kadeID := node.NewIDFromSlice(id)
+	kadeID := node.NewIDSlice(id)
 
 	t.mutex.RLock()
 

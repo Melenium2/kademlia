@@ -13,7 +13,7 @@ func NewID(id [20]byte) ID {
 	return id
 }
 
-func NewIDFromSlice(id []byte) ID {
+func NewIDSlice(id []byte) ID {
 	return *(*[20]byte)(id)
 }
 
