@@ -122,18 +122,6 @@ var fakeConn = func() *mocks.UDPConn {
 	return fake
 }
 
-func TestTable_NodeValidation_Should_ping_to_found_node_and_move_it_to_front(t *testing.T) {
-
-}
-
-func TestTable_NodeValidation_Should_do_nothing_if_can_not_found_last_wrote_node_in_buckets(t *testing.T) {
-
-}
-
-func TestTable_NodeValidation_Should_remove_node_from_bucket_if_can_not_ping_it(t *testing.T) {
-
-}
-
 func TestTable_DeleteLastNode(t *testing.T) {
 	var (
 		selfNode  = node.NewNode(&net.UDPAddr{})
