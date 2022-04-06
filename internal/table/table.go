@@ -113,6 +113,12 @@ func (t *Table) Maintenance(ctx context.Context) {
 	}
 }
 
+// NodeValidation checks nodes inside buckets that they still 'alive', otherwise remove it.
+//
+// How it works:
+// NodeValidation gets last node from random bucket and checks that node still alive.
+// If node not reply to the ping message, then it's removes from bucket, otherwise node
+// consider as checked and validated, and moves to front of these random bucket.
 func (t *Table) NodeValidation() {
 	perm := rand.Perm(NBuckets)
 
