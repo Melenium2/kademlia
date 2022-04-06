@@ -1,6 +1,7 @@
 package kbuckets_test
 
 import (
+	"math/rand"
 	"net"
 	"os"
 	"sort"
@@ -87,7 +88,7 @@ func TestKBuckets_AddOne_Should_not_set_node_if_len_of_buckets_reach_limit(t *te
 
 	oldID := newNode.ID().Bytes()
 	oldID[1] = 128
-	newKadeNode1 := node.NewNodeWithID(node.NewIDFromSlice(oldID), addr)
+	newKadeNode1 := node.NewNodeWithID(node.NewIDSlice(oldID), addr)
 	newNode1 := newKadeNode1
 
 	buckets.AddLocal(newNode1)
@@ -191,10 +192,92 @@ func TestKBuckets_FindClosest_Should_concurrently_requests_to_kbucket_for_closes
 	wg.Wait()
 }
 
-func TestKBuckets_MoveFront_Should_move_node_to_front_of_bucket(t *testing.T) {
+func TestKBuckets_MoveFront(t *testing.T) {
+	bucketID1 := make([]byte, len(sixthBucketID))
+	copy(bucketID1, sixthBucketID.Bytes())
+	bucketID1[1] = 20
 
-}
+	bucketID2 := make([]byte, len(sixthBucketID))
+	copy(bucketID2, sixthBucketID.Bytes())
+	bucketID2[1] = 19
 
-func TestKBuckets_MoveFront_Should_do_nothing_if_node_at_provided_bucket_not_found(t *testing.T) {
+	sixthBucketNode1 := node.NewNodeWithID(sixthBucketID, &net.UDPAddr{})
+	sixthBucketNode2 := node.NewNodeWithID(node.NewIDSlice(bucketID1), &net.UDPAddr{})
+	sixthBucketNode3 := node.NewNodeWithID(node.NewIDSlice(bucketID2), &net.UDPAddr{})
 
+	buckets := kbuckets.New(selfNode, 15, 150, 3)
+
+	nodes := []*node.Node{
+		sixthBucketNode3, sixthBucketNode2, sixthBucketNode1,
+		node.NewNode(addr), node.NewNode(addr),
+		node.NewNode(addr), node.NewNode(addr),
+	}
+
+	buckets.Add(nodes)
+
+	t.Run("Should move node to front of bucket", func(t *testing.T) {
+		bucket := buckets.BucketAtIndex(6)
+
+		assert.Len(t, bucket.Entries, 3)
+		assert.NotEqual(t, sixthBucketNode1, bucket.Entries[0])
+
+		buckets.MoveFront(6, sixthBucketNode1)
+
+		bucket = buckets.BucketAtIndex(6)
+
+		assert.Len(t, bucket.Entries, 3)
+		assert.Equal(t, sixthBucketNode1, bucket.Entries[0])
+	})
+
+	t.Run("Should move node to front from second position", func(t *testing.T) {
+		bucket := buckets.BucketAtIndex(6)
+
+		assert.Len(t, bucket.Entries, 3)
+		assert.NotEqual(t, sixthBucketNode2, bucket.Entries[0])
+
+		buckets.MoveFront(6, sixthBucketNode2)
+
+		bucket = buckets.BucketAtIndex(6)
+
+		assert.Len(t, bucket.Entries, 3)
+		assert.Equal(t, sixthBucketNode2, bucket.Entries[0])
+	})
+
+	t.Run("Should do nothing if node at provided bucket not found", func(t *testing.T) {
+		res := buckets.MoveFront(7, sixthBucketNode1)
+		assert.False(t, res)
+	})
+
+	t.Run("Should concurrently request to the function", func(t *testing.T) {
+		var (
+			wg          sync.WaitGroup
+			concurrency = 250
+		)
+
+		wg.Add(concurrency)
+
+		for i := 0; i < concurrency; i++ {
+			go func() {
+				curr := rand.Int31n(3)
+
+				var n *node.Node
+
+				switch curr {
+				case 0:
+					n = sixthBucketNode1
+				case 1:
+					n = sixthBucketNode2
+				case 2:
+					n = sixthBucketNode3
+				}
+
+				res := buckets.MoveFront(6, n)
+				assert.True(t, res)
+
+				wg.Done()
+			}()
+		}
+
+		wg.Wait()
+	})
 }
