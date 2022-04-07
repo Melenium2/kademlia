@@ -46,7 +46,7 @@ func (r *rpc) ApplyTimeout(timeout time.Duration) {
 		done  = make(chan struct{})
 	)
 
-	time.AfterFunc(timeout, func() {
+	timer = time.AfterFunc(timeout, func() {
 		<-done
 		r.errCh <- errors.New("got rpc timeout")
 	})
@@ -153,7 +153,6 @@ func (t *Transport) Loop(ctx context.Context) error {
 			t.nextPending(id)
 			// where we need register new call in call queue
 			// and add call to pending calls.
-
 		case canceledCall := <-t.cancelCallCh:
 			id := canceledCall.self.ID()
 			t.removeFromPending(id)
@@ -203,21 +202,14 @@ func (t *Transport) nextPending(id node.ID) {
 // this situation impossible if all components will work in normal
 // mode.
 func (t *Transport) removeFromPending(id node.ID) {
-	var (
-		call *rpc
-		ok   bool
-	)
-
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if call, ok = t.pendingCalls[id]; !ok {
+	if _, ok := t.pendingCalls[id]; !ok {
 		t.log.Fatal("trying to remove inactive call, this is unreal")
 
 		return
 	}
-
-	_ = call.StopTimeout()
 
 	delete(t.pendingCalls, id)
 }
@@ -394,6 +386,7 @@ func (t *Transport) call(reqID []byte, node *node.Node, req Packet) *rpc {
 // pruneCall clears all rpc response channels and remove call
 // from pending calls.
 func (t *Transport) pruneCall(rpc *rpc) {
+	_ = rpc.StopTimeout()
 	rpc.Close()
 
 	for range rpc.resCh {
