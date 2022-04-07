@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/Melenium2/kademlia/internal/conn"
 	"github.com/Melenium2/kademlia/internal/conn/mocks"
@@ -113,6 +114,31 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 	table := NewTable(&cfg, self, c)
 
 	table.Discover()
+}
+
+func TestTable_Maintenance(t *testing.T) {
+	t.Skip("this is long test, remove skip if needed")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	err := initNetwork(ctx, 300)
+	require.NoError(t, err)
+
+	cfg := Config{
+		BootNodes: bootstrapNodes(initialPort+1, initialPort+2, initialPort+3),
+	}
+
+	addr, _ := resolveAddr(15000)
+	self := node.NewNode(addr)
+	c, err := udpConn(addr)
+	require.NoError(t, err)
+
+	table := NewTable(&cfg, self, c)
+
+	table.Discover()
+
+	table.Maintenance(ctx)
 }
 
 var fakeConn = func() *mocks.UDPConn {
