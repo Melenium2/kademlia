@@ -102,6 +102,7 @@ func (t *Table) Maintenance(ctx context.Context) {
 	for {
 		select {
 		case <-refreshTicker.C:
+			go t.DiscoverNeighbors()
 		case <-pingTicker.C:
 			go t.NodeValidation()
 		case <-ctx.Done():
@@ -178,7 +179,29 @@ func (t *Table) deleteLastNode(bucketIndex int, node *node.Node) bool {
 	return true
 }
 
-func (t *Table) DiscoverNeighbors() {}
+// DiscoverNeighbors finds new neighbors nodes close to self-node, and make fast random lookups
+// by some random nodes.
+func (t *Table) DiscoverNeighbors() {
+	neighbors, err := t.findNeighbors(t.self)
+	if err != nil {
+		t.log.Error(err.Error())
+
+		return
+	}
+
+	t.buckets.Add(neighbors)
+
+	for i := 0; i < 5; i++ {
+		random, err := t.findRandom()
+		if err != nil {
+			t.log.Error(err.Error())
+
+			return
+		}
+
+		t.buckets.Add(random)
+	}
+}
 
 // Docs
 // http://xlattice.sourceforge.net/components/protocol/kademlia/specs.html#implementation
