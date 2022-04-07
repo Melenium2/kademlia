@@ -121,6 +121,9 @@ func (t *Table) Maintenance(ctx context.Context) {
 // If node not reply to the ping message, then it's removes from bucket, otherwise node
 // consider as checked and validated, and moves to front of these random bucket.
 func (t *Table) NodeValidation() {
+	timer := t.timer("validation", time.Now())
+	defer timer()
+
 	perm := rand.Perm(NBuckets)
 
 	var (
@@ -157,6 +160,8 @@ func (t *Table) NodeValidation() {
 		return
 	}
 
+	t.log.Infof("node at address %s:%d still alive", bucketNode.Addr().IP, bucketNode.Addr().Port)
+
 	t.buckets.MoveFront(bucketIndex, bucketNode)
 }
 
@@ -182,6 +187,9 @@ func (t *Table) deleteLastNode(bucketIndex int, node *node.Node) bool {
 // DiscoverNeighbors finds new neighbors nodes close to self-node, and make fast random lookups
 // by some random nodes.
 func (t *Table) DiscoverNeighbors() {
+	timer := t.timer("discover", time.Now())
+	defer timer()
+
 	neighbors, err := t.findNeighbors(t.self)
 	if err != nil {
 		t.log.Error(err.Error())
@@ -200,6 +208,12 @@ func (t *Table) DiscoverNeighbors() {
 		}
 
 		t.buckets.Add(random)
+	}
+}
+
+func (t *Table) timer(operation string, now time.Time) func() {
+	return func() {
+		t.log.Infof("%s time progress = %s", operation, time.Since(now))
 	}
 }
 
