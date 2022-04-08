@@ -127,6 +127,9 @@ func (fn *NodesList) IAm() byte {
 }
 
 const (
+	// default request ID length.
+	//
+	// may be move it to configurable variables?
 	requestIDLen = 8
 )
 
