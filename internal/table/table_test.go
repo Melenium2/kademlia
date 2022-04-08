@@ -116,6 +116,21 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 	table.Discover()
 }
 
+func TestTable_Discover_Should_return_false_if_can_not_discovery_nodes(t *testing.T) {
+	cfg := Config{}
+
+	addr, _ := resolveAddr(15000)
+	self := node.NewNode(addr)
+
+	c, err := udpConn(addr)
+	require.NoError(t, err)
+
+	table := NewTable(&cfg, self, c)
+
+	res := table.Discover()
+	assert.False(t, res)
+}
+
 func TestTable_Maintenance(t *testing.T) {
 	t.Skip("this is long test, remove skip if needed")
 
