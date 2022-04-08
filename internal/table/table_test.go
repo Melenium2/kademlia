@@ -111,6 +111,8 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 	c, err := udpConn(addr)
 	require.NoError(t, err)
 
+	defer c.Close()
+
 	table := NewTable(&cfg, self, c)
 
 	table.Discover()
@@ -124,6 +126,8 @@ func TestTable_Discover_Should_return_false_if_can_not_discovery_nodes(t *testin
 
 	c, err := udpConn(addr)
 	require.NoError(t, err)
+
+	defer c.Close()
 
 	table := NewTable(&cfg, self, c)
 
