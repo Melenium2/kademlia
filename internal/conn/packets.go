@@ -126,9 +126,12 @@ func (fn *NodesList) IAm() byte {
 	return NodesListMessage
 }
 
+const (
+	requestIDLen = 8
+)
+
 func GenerateReqID() []byte {
-	// TODO mb move ID len to cons
-	reqID := make([]byte, 8) // nolint:gomnd
+	reqID := make([]byte, requestIDLen)
 
 	_, _ = rand.Read(reqID)
 
