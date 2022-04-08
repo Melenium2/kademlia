@@ -25,7 +25,7 @@ const (
 	BucketMinDistance = HashBits - NBuckets // Log distance of the closest bucket.
 
 	RefreshRate   = 1 * time.Minute
-	LiveCheckRate = 25 * time.Second
+	LiveCheckRate = 8 * time.Second
 )
 
 type Config struct {
@@ -59,15 +59,21 @@ func NewTable(cfg *Config, self *node.Node, connection conn.UDPConn) *Table {
 	return t
 }
 
-func (t *Table) Discover() {
+// Discover will request to bootstrap nodes, provided by config, for
+// nodes in the network.
+//
+// If bootstrap nodes, in the configuration, are empty, this function log error and return false.
+func (t *Table) Discover() bool {
 	nodes, err := t.discover(t.bootstrapNodes)
 	if err != nil {
 		t.log.Error(err.Error())
 
-		return
+		return false
 	}
 
 	t.buckets.Add(nodes)
+
+	return true
 }
 
 func (t *Table) discover(nodes []*node.Node) ([]*node.Node, error) {
@@ -145,6 +151,8 @@ func (t *Table) NodeValidation() {
 	}
 
 	if bucketNode == nil {
+		t.log.Warn("no nodes found in the buckets")
+
 		return
 	}
 
