@@ -99,6 +99,8 @@ func (t *Table) findRandom() ([]*node.Node, error) {
 	return t.findNeighbors(n)
 }
 
+// Maintenance start table update cycle. While cycle, table will find new nodes and
+// checks already added nodes for availability. For closing cycle you must cancel context.Context.
 func (t *Table) Maintenance(ctx context.Context) {
 	var (
 		refreshTicker = time.NewTicker(RefreshRate)
