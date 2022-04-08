@@ -14,6 +14,11 @@ import (
 	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
+// TODO
+//		Add client code for running table
+//		Add config variables
+//		Change encode/decode method
+
 const (
 	// Alpha is a small number representing the degree of parallelism in network calls, usually 3.
 	Alpha = 3
