@@ -22,6 +22,7 @@ const (
 	MaxMessageSize         = 1000
 	TotalNodesPacketsLimit = 5
 	TotalNodeSendLimit     = 16
+	RPCQueueLimit          = 10
 )
 
 type rpc struct {
@@ -132,9 +133,8 @@ func NewTransport(conn UDPConn, store KBuckets) *Transport {
 		log:          logger.GetLogger(),
 		callQueue:    make(map[node.ID][]*rpc),
 		pendingCalls: make(map[node.ID]*rpc),
-		// todo change here to constant
-		cancelCallCh: make(chan *rpc, 10), // nolint:gomnd
-		nextCallCh:   make(chan *rpc, 10), // nolint:gomnd
+		cancelCallCh: make(chan *rpc, RPCQueueLimit),
+		nextCallCh:   make(chan *rpc, RPCQueueLimit),
 	}
 }
 
