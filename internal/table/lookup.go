@@ -74,7 +74,7 @@ func (l *lookup) Discover() ([]*node.Node, error) {
 	}
 
 	var (
-		resCh = make(chan []*node.Node, Alpha)
+		resCh = make(chan []*node.Node, ParallelCalls)
 		errCh = make(chan error, 1)
 	)
 
@@ -144,8 +144,8 @@ func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 	for l.started >= 0 {
 		nodes := l.resultNodes.Nodes()
 		// we loop over all nodes and query it for closest nodes. We can not
-		// run more parallel scans than Alpha (3).
-		for i := 0; i < len(nodes) && l.started < Alpha; i++ {
+		// run more parallel scans than ParallelCalls (3).
+		for i := 0; i < len(nodes) && l.started < ParallelCalls; i++ {
 			curr := nodes[i]
 
 			if _, ok := l.askedNodes[curr.ID()]; ok {
