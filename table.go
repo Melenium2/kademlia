@@ -44,7 +44,7 @@ func New(_ Config, conn *net.UDPConn, knownNodesAddr []*net.UDPAddr) *DHT {
 		BootNodes: node.NewNodes(knownNodesAddr),
 	}
 
-	t := table.NewTable(&cfg, self, conn)
+	t := table.NewTable(cfg, self, conn)
 
 	return &DHT{
 		table: t,

@@ -47,7 +47,7 @@ type Table struct {
 	log logger.Logger
 }
 
-func NewTable(cfg *Config, self *node.Node, connection conn.UDPConn) *Table {
+func NewTable(cfg Config, self *node.Node, connection conn.UDPConn) *Table {
 	buckets := kbuckets.New(self, NBuckets, BucketMinDistance, BucketSize)
 	transport := conn.NewTransport(connection, buckets)
 

@@ -113,7 +113,7 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 
 	defer c.Close()
 
-	table := NewTable(&cfg, self, c)
+	table := NewTable(cfg, self, c)
 
 	table.Discover()
 }
@@ -129,7 +129,7 @@ func TestTable_Discover_Should_return_false_if_can_not_discovery_nodes(t *testin
 
 	defer c.Close()
 
-	table := NewTable(&cfg, self, c)
+	table := NewTable(cfg, self, c)
 
 	res := table.Discover()
 	assert.False(t, res)
@@ -153,7 +153,7 @@ func TestTable_Maintenance(t *testing.T) {
 	c, err := udpConn(addr)
 	require.NoError(t, err)
 
-	table := NewTable(&cfg, self, c)
+	table := NewTable(cfg, self, c)
 
 	table.Discover()
 
@@ -170,7 +170,7 @@ var fakeConn = func() *mocks.UDPConn {
 func TestTable_DeleteLastNode(t *testing.T) {
 	var (
 		selfNode  = node.NewNode(&net.UDPAddr{})
-		table     = NewTable(&Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
+		table     = NewTable(Config{BootNodes: []*node.Node{}}, selfNode, fakeConn())
 		firstNode = node.NewNode(&net.UDPAddr{Port: 5222})
 	)
 
