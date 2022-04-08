@@ -20,8 +20,8 @@ import (
 //		Change encode/decode method
 
 const (
-	// Alpha is a small number representing the degree of parallelism in network calls, usually 3.
-	Alpha = 3
+	// ParallelCalls is a small number representing the degree of parallelism in network calls, usually 3.
+	ParallelCalls = 3
 	// BucketSize is Kademlia single bucket size.
 	BucketSize = 16
 
