@@ -62,6 +62,16 @@ func NewNodeFromScratch(id ID, ip net.IP, port int, addedAt time.Time) *Node {
 	}
 }
 
+func NewNodes(addrs []*net.UDPAddr) []*Node {
+	nodes := make([]*Node, len(addrs))
+
+	for i := 0; i < len(addrs); i++ {
+		nodes[i] = NewNode(addrs[i])
+	}
+
+	return nodes
+}
+
 func (n *Node) Addr() net.UDPAddr {
 	return net.UDPAddr{
 		IP:   n.IP(),
