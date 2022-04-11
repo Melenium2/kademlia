@@ -34,7 +34,10 @@ const (
 )
 
 type Config struct {
-	BootNodes []*node.Node
+	ParallelCalls    int
+	BucketSize       int
+	TableRefreshRate time.Duration
+	LiveCheckRate    time.Duration
 }
 
 type Table struct {
@@ -47,7 +50,7 @@ type Table struct {
 	log logger.Logger
 }
 
-func NewTable(cfg Config, self *node.Node, connection conn.UDPConn) *Table {
+func New(bootNodes []*node.Node, self *node.Node, connection conn.UDPConn, _ Config) *Table {
 	buckets := kbuckets.New(self, NBuckets, BucketMinDistance, BucketSize)
 	transport := conn.NewTransport(connection, buckets)
 
@@ -57,7 +60,7 @@ func NewTable(cfg Config, self *node.Node, connection conn.UDPConn) *Table {
 		transport:      transport,
 		self:           self,
 		buckets:        buckets,
-		bootstrapNodes: cfg.BootNodes,
+		bootstrapNodes: bootNodes,
 		log:            logger.GetLogger(),
 	}
 
