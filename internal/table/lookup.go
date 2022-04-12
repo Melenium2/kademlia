@@ -69,10 +69,6 @@ func newLookup(finder finder, self *node.Node, cfg lookupConfig) *lookup {
 // close to our self Node and return it in sorted order. Items will be sorted
 // by the distance between our Node and searched Node's.
 func (l *lookup) Discover() ([]*node.Node, error) {
-	if len(l.bootstrap) == 0 {
-		return nil, ErrEmptyBootstrapNodes
-	}
-
 	for i := 0; i < len(l.bootstrap); i++ {
 		l.resultNodes.Add(l.bootstrap[i])
 	}
