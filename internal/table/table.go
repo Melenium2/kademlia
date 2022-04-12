@@ -18,6 +18,8 @@ import (
 //		Add client code for running table
 //		Add config variables
 //		Change encode/decode method
+//      Now we can not start out table without any bootstrap nodes,
+//		we should started without nodes too.
 
 const (
 	HashBits          = len(node.ID{}) * 8  // Length of hash in bits. Now this is length of SHA-1, 160 bits.
