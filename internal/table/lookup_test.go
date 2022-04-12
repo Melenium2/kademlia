@@ -25,12 +25,18 @@ func randomNode() *node.Node {
 	return newNode
 }
 
-var self = randomNode()
+var (
+	self      = randomNode()
+	lookupCfg = lookupConfig{
+		ConcurrentCalls: 3,
+		BucketSize:      16,
+	}
+)
 
 func TestScan_Should_call_Find_func_and_return_result_to_result_channel(t *testing.T) {
 	var (
 		targetNode = randomNode()
-		resCh      = make(chan []*node.Node, ParallelCalls)
+		resCh      = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh      = make(chan error, 1)
 		expected   = []*node.Node{
 			randomNode(), randomNode(), randomNode(), randomNode(),
@@ -40,7 +46,7 @@ func TestScan_Should_call_Find_func_and_return_result_to_result_channel(t *testi
 	fakeFinder := mocks.Finder{}
 	fakeFinder.On("FindNode", targetNode, mock.IsType([]uint{})).Return(expected, nil)
 
-	l := newLookup(&fakeFinder, self, lookupConfig{})
+	l := newLookup(&fakeFinder, self, lookupCfg)
 
 	l.scan(targetNode, resCh, errCh)
 
@@ -55,14 +61,14 @@ func TestScan_Should_call_Find_func_and_return_result_to_result_channel(t *testi
 func TestScan_Should_call_Find_func_which_return_some_error(t *testing.T) {
 	var (
 		targetNode = randomNode()
-		resCh      = make(chan []*node.Node, ParallelCalls)
+		resCh      = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh      = make(chan error, 1)
 	)
 
 	fakeFinder := mocks.Finder{}
 	fakeFinder.On("FindNode", targetNode, mock.IsType([]uint{})).Return(nil, ErrEmptyBootstrapNodes)
 
-	l := newLookup(&fakeFinder, self, lookupConfig{})
+	l := newLookup(&fakeFinder, self, lookupCfg)
 
 	l.scan(targetNode, resCh, errCh)
 
@@ -78,10 +84,10 @@ func TestScan_Should_call_Find_func_which_return_some_error(t *testing.T) {
 func TestConsume_Should_save_all_incoming_nodes_from_provided_channel_also_nodes_should_be_sorted_by_id(t *testing.T) {
 	var (
 		expected = []*node.Node{randomNode(), randomNode(), randomNode()}
-		resCh    = make(chan []*node.Node, ParallelCalls)
+		resCh    = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh    = make(chan error, 1)
 	)
-	l := newLookup(nil, self, lookupConfig{})
+	l := newLookup(nil, self, lookupCfg)
 	l.started = 1
 
 	resCh <- expected
@@ -107,10 +113,10 @@ func TestConsume_Should_save_all_incoming_nodes_from_provided_channel_also_nodes
 func TestConsume_Should_dont_save_already_processed_nodes(t *testing.T) {
 	var (
 		expected = []*node.Node{randomNode(), randomNode(), randomNode()}
-		resCh    = make(chan []*node.Node, ParallelCalls)
+		resCh    = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh    = make(chan error, 1)
 	)
-	l := newLookup(nil, self, lookupConfig{})
+	l := newLookup(nil, self, lookupCfg)
 	l.started = 1
 
 	for _, curr := range expected {
@@ -129,11 +135,11 @@ func TestConsume_Should_dont_save_already_processed_nodes(t *testing.T) {
 
 func TestConsume_Should_return_error_if_error_sent_to_the_channel(t *testing.T) {
 	var (
-		resCh       = make(chan []*node.Node, ParallelCalls)
+		resCh       = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh       = make(chan error, 1)
 		expectedErr = errors.New("some error while processing")
 	)
-	l := newLookup(nil, self, lookupConfig{})
+	l := newLookup(nil, self, lookupCfg)
 	l.started = 1
 
 	errCh <- expectedErr
@@ -146,7 +152,7 @@ func TestConsume_Should_return_error_if_error_sent_to_the_channel(t *testing.T) 
 func TestStart_Should_startup_with_3_nodes_and_check_it_then_add_3_more_nodes_and_check_it_too_then_return_6_nodes_as_result(t *testing.T) {
 	var (
 		iteration = 3
-		resCh     = make(chan []*node.Node, ParallelCalls)
+		resCh     = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh     = make(chan error, 1)
 		result    = []*node.Node{randomNode(), randomNode(), randomNode()}
 	)
@@ -157,7 +163,7 @@ func TestStart_Should_startup_with_3_nodes_and_check_it_then_add_3_more_nodes_an
 		Return(result, nil).
 		Times(6)
 
-	l := newLookup(&fakeFinder, self, lookupConfig{})
+	l := newLookup(&fakeFinder, self, lookupCfg)
 
 	for i := 0; i < iteration; i++ {
 		l.resultNodes.Add(randomNode())
@@ -178,7 +184,7 @@ func TestStart_Should_startup_with_3_nodes_and_check_it_then_add_3_more_nodes_an
 func TestStart_Should_return_error_if_can_not_consume_some_nodes(t *testing.T) {
 	var (
 		iteration   = 3
-		resCh       = make(chan []*node.Node, ParallelCalls)
+		resCh       = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh       = make(chan error, 1)
 		expectedErr = errors.New("some expected error")
 	)
@@ -188,7 +194,7 @@ func TestStart_Should_return_error_if_can_not_consume_some_nodes(t *testing.T) {
 		On("FindNode", mock.IsType(self), mock.IsType([]uint{})).
 		Return(nil, expectedErr)
 
-	l := newLookup(&fakeFinder, self, lookupConfig{})
+	l := newLookup(&fakeFinder, self, lookupCfg)
 
 	for i := 0; i < iteration; i++ {
 		l.resultNodes.Add(randomNode())
@@ -201,11 +207,11 @@ func TestStart_Should_return_error_if_can_not_consume_some_nodes(t *testing.T) {
 
 func TestDrain_Should_drain_all_channels(t *testing.T) {
 	var (
-		resCh = make(chan []*node.Node, ParallelCalls)
+		resCh = make(chan []*node.Node, lookupCfg.ConcurrentCalls)
 		errCh = make(chan error, 1)
 	)
 
-	l := newLookup(nil, self, lookupConfig{})
+	l := newLookup(nil, self, lookupCfg)
 
 	resCh <- []*node.Node{randomNode(), randomNode()}
 	errCh <- io.ErrClosedPipe

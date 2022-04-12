@@ -18,7 +18,9 @@ type finder interface {
 
 // lookupConfig is configuration to lookup mechanism.
 type lookupConfig struct {
-	Bootstrap []*node.Node
+	Bootstrap       []*node.Node
+	ConcurrentCalls int
+	BucketSize      int
 }
 
 // lookup mechanism that trying to found all Node's in the network that
@@ -44,19 +46,21 @@ type lookup struct {
 	bootstrap []*node.Node
 	// count of concurrent searches. If started equals to zero this is
 	// means that we already looked at each node in network.
-	started int
+	started       int
+	parallelCalls int
 }
 
 // newLookup create new lookup mechanism.
 func newLookup(finder finder, self *node.Node, cfg lookupConfig) *lookup {
 	return &lookup{
-		finder:      finder,
-		log:         logger.GetLogger(),
-		selfID:      self.ID(),
-		askedNodes:  make(map[node.ID]struct{}),
-		seenNodes:   make(map[node.ID]struct{}),
-		resultNodes: kbuckets.NewOrderedNodes(self, BucketSize),
-		bootstrap:   cfg.Bootstrap,
+		finder:        finder,
+		log:           logger.GetLogger(),
+		selfID:        self.ID(),
+		askedNodes:    make(map[node.ID]struct{}),
+		seenNodes:     make(map[node.ID]struct{}),
+		resultNodes:   kbuckets.NewOrderedNodes(self, cfg.BucketSize),
+		bootstrap:     cfg.Bootstrap,
+		parallelCalls: cfg.ConcurrentCalls,
 	}
 }
 
@@ -74,7 +78,7 @@ func (l *lookup) Discover() ([]*node.Node, error) {
 	}
 
 	var (
-		resCh = make(chan []*node.Node, ParallelCalls)
+		resCh = make(chan []*node.Node, l.parallelCalls)
 		errCh = make(chan error, 1)
 	)
 
@@ -145,7 +149,7 @@ func (l *lookup) start(resCh chan []*node.Node, errCh chan error) error {
 		nodes := l.resultNodes.Nodes()
 		// we loop over all nodes and query it for closest nodes. We can not
 		// run more parallel scans than ParallelCalls (3).
-		for i := 0; i < len(nodes) && l.started < ParallelCalls; i++ {
+		for i := 0; i < len(nodes) && l.started < l.parallelCalls; i++ {
 			curr := nodes[i]
 
 			if _, ok := l.askedNodes[curr.ID()]; ok {

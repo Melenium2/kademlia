@@ -20,17 +20,9 @@ import (
 //		Change encode/decode method
 
 const (
-	// ParallelCalls is a small number representing the degree of parallelism in network calls, usually 3.
-	ParallelCalls = 3
-	// BucketSize is Kademlia single bucket size.
-	BucketSize = 16
-
 	HashBits          = len(node.ID{}) * 8  // Length of hash in bits. Now this is length of SHA-1, 160 bits.
 	NBuckets          = HashBits / 15       // Number of buckets.
 	BucketMinDistance = HashBits - NBuckets // Log distance of the closest bucket.
-
-	RefreshRate   = 1 * time.Minute
-	LiveCheckRate = 8 * time.Second
 )
 
 type Config struct {
@@ -47,11 +39,12 @@ type Table struct {
 	self           *node.Node
 	bootstrapNodes []*node.Node
 
+	cfg Config
 	log logger.Logger
 }
 
-func New(bootNodes []*node.Node, self *node.Node, connection conn.UDPConn, _ Config) *Table {
-	buckets := kbuckets.New(self, NBuckets, BucketMinDistance, BucketSize)
+func New(bootNodes []*node.Node, self *node.Node, connection conn.UDPConn, cfg Config) *Table {
+	buckets := kbuckets.New(self, NBuckets, BucketMinDistance, cfg.BucketSize)
 	transport := conn.NewTransport(connection, buckets)
 
 	go transport.Loop(context.Background()) // nolint:errcheck
@@ -61,6 +54,7 @@ func New(bootNodes []*node.Node, self *node.Node, connection conn.UDPConn, _ Con
 		self:           self,
 		buckets:        buckets,
 		bootstrapNodes: bootNodes,
+		cfg:            cfg,
 		log:            logger.GetLogger(),
 	}
 
@@ -86,7 +80,8 @@ func (t *Table) Discover() bool {
 
 func (t *Table) discover(nodes []*node.Node) ([]*node.Node, error) {
 	lookupMechanism := newLookup(t.transport, t.self, lookupConfig{
-		Bootstrap: nodes,
+		Bootstrap:       nodes,
+		ConcurrentCalls: t.cfg.ParallelCalls,
 	})
 
 	return lookupMechanism.Discover()
@@ -111,8 +106,8 @@ func (t *Table) findRandom() ([]*node.Node, error) {
 // checks already added nodes for availability. For closing cycle you must cancel context.Context.
 func (t *Table) Maintenance(ctx context.Context) {
 	var (
-		refreshTicker = time.NewTicker(RefreshRate)
-		pingTicker    = time.NewTicker(LiveCheckRate)
+		refreshTicker = time.NewTicker(t.cfg.TableRefreshRate)
+		pingTicker    = time.NewTicker(t.cfg.LiveCheckRate)
 	)
 
 	for {

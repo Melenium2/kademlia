@@ -18,7 +18,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var initialPort = 36000
+var (
+	initialPort = 36000
+	bucketSize  = 16
+	tableCofig  = Config{
+		ParallelCalls:    3,
+		BucketSize:       bucketSize,
+		TableRefreshRate: 1 * time.Minute,
+		LiveCheckRate:    8 * time.Second,
+	}
+)
 
 func transport(ctx context.Context, c *net.UDPConn, buckets conn.KBuckets) *conn.Transport {
 	newTransport := conn.NewTransport(c, buckets)
@@ -80,7 +89,7 @@ func initNetwork(ctx context.Context, nodesCount int) error {
 
 		nodes = append(nodes, selfNode)
 
-		store := kbuckets.New(selfNode, NBuckets, BucketMinDistance, BucketSize)
+		store := kbuckets.New(selfNode, NBuckets, BucketMinDistance, bucketSize)
 		stores[port] = store
 
 		transport(ctx, c, store)
@@ -111,7 +120,7 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 
 	defer c.Close()
 
-	table := New(boot, self, c, Config{})
+	table := New(boot, self, c, tableCofig)
 
 	table.Discover()
 }
@@ -125,7 +134,7 @@ func TestTable_Discover_Should_return_false_if_can_not_discovery_nodes(t *testin
 
 	defer c.Close()
 
-	table := New(nil, self, c, Config{})
+	table := New(nil, self, c, tableCofig)
 
 	res := table.Discover()
 	assert.False(t, res)
@@ -147,7 +156,7 @@ func TestTable_Maintenance(t *testing.T) {
 	c, err := udpConn(addr)
 	require.NoError(t, err)
 
-	table := New(boot, self, c, Config{})
+	table := New(boot, self, c, tableCofig)
 
 	table.Discover()
 
@@ -164,7 +173,7 @@ var fakeConn = func() *mocks.UDPConn {
 func TestTable_DeleteLastNode(t *testing.T) {
 	var (
 		selfNode  = node.NewNode(&net.UDPAddr{})
-		table     = New([]*node.Node{}, selfNode, fakeConn(), Config{})
+		table     = New([]*node.Node{}, selfNode, fakeConn(), tableCofig)
 		firstNode = node.NewNode(&net.UDPAddr{Port: 5222})
 	)
 
