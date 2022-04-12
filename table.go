@@ -1,6 +1,7 @@
 package kademlia
 
 import (
+	"context"
 	"net"
 
 	"github.com/Melenium2/kademlia/internal/node"
@@ -39,4 +40,12 @@ func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT 
 	return &DHT{
 		table: t,
 	}
+}
+
+// Maintenance start refresh / validate cycle of DHT.
+//
+// Function is block main thread. For closing this function need to call Close() on context
+// or set Timeout or Deadline.
+func (dht *DHT) Maintenance(ctx context.Context) {
+	dht.table.Maintenance(ctx)
 }
