@@ -7,11 +7,7 @@ import (
 	"time"
 
 	"github.com/Melenium2/kademlia"
-)
-
-var (
-	addr, _ = net.ResolveUDPAddr("udp", ":1111")
-	conn, _ = net.ListenUDP("udp", addr)
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -25,9 +21,10 @@ func TestDHT_Maintenance_Should_create_and_dht_table(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	dht := kademlia.New(conn, knwons)
+	dht := kademlia.New(1111, knwons)
 
-	dht.Maintenance(ctx)
+	err := dht.Maintenance(ctx)
+	assert.NoError(t, err)
 }
 
 func TestDHT_Maintenance_Should_create_new_dht_with_options(t *testing.T) {
@@ -35,7 +32,7 @@ func TestDHT_Maintenance_Should_create_new_dht_with_options(t *testing.T) {
 	defer cancel()
 
 	dht := kademlia.New(
-		conn,
+		1112,
 		knwons,
 		kademlia.WithLiveCheckRate(10*time.Second),
 		kademlia.WithTableRefreshRate(1*time.Minute),
@@ -43,5 +40,6 @@ func TestDHT_Maintenance_Should_create_new_dht_with_options(t *testing.T) {
 		kademlia.WithParallelCallsCount(3),
 	)
 
-	dht.Maintenance(ctx)
+	err := dht.Maintenance(ctx)
+	assert.NoError(t, err)
 }

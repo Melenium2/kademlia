@@ -2,10 +2,12 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/Melenium2/kademlia/internal/node"
 	"github.com/Melenium2/kademlia/internal/table"
+	"github.com/Melenium2/kademlia/pkg/logger"
 )
 
 // DHT - is distributed hash table. This hash table implements
@@ -16,7 +18,7 @@ type DHT struct {
 	table *table.Table
 }
 
-func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT {
+func New(port uint16, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT {
 	options := defaultOptions()
 
 	for _, opt := range opts {
@@ -24,9 +26,14 @@ func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT 
 	}
 
 	var (
-		addr       = conn.LocalAddr()
-		udpAddr, _ = net.ResolveUDPAddr(addr.Network(), addr.String())
+		portStr    = fmt.Sprintf(":%d", port)
+		udpAddr, _ = net.ResolveUDPAddr("udp", portStr)
 	)
+
+	conn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		logger.GetLogger().Fatal(err.Error())
+	}
 
 	self := node.NewNode(udpAddr)
 
@@ -37,8 +44,6 @@ func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT 
 		LiveCheckRate:    options.LiveCheckRate,
 	})
 
-	// isDiscovered := t.Discover()
-
 	return &DHT{
 		table: t,
 	}
@@ -48,8 +53,15 @@ func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT 
 //
 // Function is block main thread. For closing this function need to call Close() on context
 // or set Timeout or Deadline.
-func (dht *DHT) Maintenance(ctx context.Context) {
+func (dht *DHT) Maintenance(ctx context.Context) error {
+	isDiscovered := dht.table.Discover()
+	if !isDiscovered {
+		return fmt.Errorf("%w on table init", ErrDiscover)
+	}
+
 	dht.table.Maintenance(ctx)
+
+	return nil
 }
 
 // ForceRefresh init force refresh cycle of DHT. This function trying to find
@@ -59,5 +71,3 @@ func (dht *DHT) Maintenance(ctx context.Context) {
 func (dht *DHT) ForceRefresh() {
 	dht.table.DiscoverNeighbors()
 }
-
-// TODO add test usecase for forceRefresh
