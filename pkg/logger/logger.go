@@ -14,15 +14,15 @@ import (
 
 type Logger interface {
 	Debug(msg string)
-	Debugf(fmt string, args ...interface{})
+	Debugf(fmt string, args ...any)
 	Info(msg string)
-	Infof(fmt string, args ...interface{})
+	Infof(fmt string, args ...any)
 	Warn(msg string)
-	Warnf(fmt string, args ...interface{})
+	Warnf(fmt string, args ...any)
 	Error(msg string)
-	Errorf(fmt string, args ...interface{})
+	Errorf(fmt string, args ...any)
 	Fatal(msg string)
-	Fatalf(fmt string, args ...interface{})
+	Fatalf(fmt string, args ...any)
 	GetLevel() string
 }
 
@@ -59,21 +59,21 @@ func newLogger(logLevel string) *CustomLogger {
 	}
 
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
-	output.FormatTimestamp = func(i interface{}) string {
+	output.FormatTimestamp = func(i any) string {
 		return fmt.Sprintf("ts=%s", i)
 	}
-	output.FormatLevel = func(i interface{}) string {
+	output.FormatLevel = func(i any) string {
 		return fmt.Sprintf("lvl=%s", strings.ToUpper(i.(string))) // nolint:forcetypeassert
 	}
-	output.FormatMessage = func(i interface{}) string {
+	output.FormatMessage = func(i any) string {
 		str, _ := i.(string)
 
 		return fmt.Sprintf("msg=\"%s\"", editStringWithQuotes(str))
 	}
-	output.FormatFieldName = func(i interface{}) string {
+	output.FormatFieldName = func(i any) string {
 		return fmt.Sprintf("%s=", i)
 	}
-	output.FormatFieldValue = func(i interface{}) string {
+	output.FormatFieldValue = func(i any) string {
 		return fmt.Sprintf("\"%s\"", i)
 	}
 
@@ -93,7 +93,7 @@ func (l *CustomLogger) Debug(msg string) {
 	l.logger.Debug().Str("src", getSource()).Msg(msg)
 }
 
-func (l *CustomLogger) Debugf(fmt string, args ...interface{}) {
+func (l *CustomLogger) Debugf(fmt string, args ...any) {
 	l.logger.Debug().Str("src", getSource()).Msgf(fmt, args...)
 }
 
@@ -101,7 +101,7 @@ func (l *CustomLogger) Info(msg string) {
 	l.logger.Info().Str("src", getSource()).Msg(msg)
 }
 
-func (l *CustomLogger) Infof(fmt string, args ...interface{}) {
+func (l *CustomLogger) Infof(fmt string, args ...any) {
 	l.logger.Info().Str("src", getSource()).Msgf(fmt, args...)
 }
 
@@ -109,7 +109,7 @@ func (l *CustomLogger) Warn(msg string) {
 	l.logger.Warn().Str("src", getSource()).Msg(msg)
 }
 
-func (l *CustomLogger) Warnf(fmt string, args ...interface{}) {
+func (l *CustomLogger) Warnf(fmt string, args ...any) {
 	l.logger.Warn().Str("src", getSource()).Msgf(fmt, args...)
 }
 
@@ -117,7 +117,7 @@ func (l *CustomLogger) Error(msg string) {
 	l.logger.Error().Str("src", getSource()).Msg(msg)
 }
 
-func (l *CustomLogger) Errorf(fmt string, args ...interface{}) {
+func (l *CustomLogger) Errorf(fmt string, args ...any) {
 	l.logger.Error().Str("src", getSource()).Msgf(fmt, args...)
 }
 
@@ -125,7 +125,7 @@ func (l *CustomLogger) Fatal(msg string) {
 	l.logger.Fatal().Str("src", getSource()).Msg(msg)
 }
 
-func (l *CustomLogger) Fatalf(fmt string, args ...interface{}) {
+func (l *CustomLogger) Fatalf(fmt string, args ...any) {
 	l.logger.Fatal().Str("src", getSource()).Msgf(fmt, args...)
 }
 
