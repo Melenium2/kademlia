@@ -21,7 +21,7 @@ import (
 var (
 	initialPort = 36000
 	bucketSize  = 16
-	tableCofig  = Config{
+	tableConfig = Config{
 		ParallelCalls:    3,
 		BucketSize:       bucketSize,
 		TableRefreshRate: 1 * time.Minute,
@@ -120,12 +120,12 @@ func TestTable_Discover_Should_find_nodes(t *testing.T) {
 
 	defer c.Close()
 
-	table := New(boot, self, c, tableCofig)
+	table := New(boot, self, c, tableConfig)
 
 	table.Discover()
 }
 
-func TestTable_Discover_Should_return_false_if_can_not_discovery_nodes(t *testing.T) {
+func TestTable_Discover_Should_return_true_if_list_of_bootstrap_nodes_is_empty(t *testing.T) {
 	addr, _ := resolveAddr(15000)
 	self := node.NewNode(addr)
 
@@ -134,10 +134,10 @@ func TestTable_Discover_Should_return_false_if_can_not_discovery_nodes(t *testin
 
 	defer c.Close()
 
-	table := New(nil, self, c, tableCofig)
+	table := New(nil, self, c, tableConfig)
 
 	res := table.Discover()
-	assert.False(t, res)
+	assert.True(t, res)
 }
 
 func TestTable_Maintenance(t *testing.T) {
@@ -156,7 +156,7 @@ func TestTable_Maintenance(t *testing.T) {
 	c, err := udpConn(addr)
 	require.NoError(t, err)
 
-	table := New(boot, self, c, tableCofig)
+	table := New(boot, self, c, tableConfig)
 
 	table.Discover()
 
@@ -173,7 +173,7 @@ var fakeConn = func() *mocks.UDPConn {
 func TestTable_DeleteLastNode(t *testing.T) {
 	var (
 		selfNode  = node.NewNode(&net.UDPAddr{})
-		table     = New([]*node.Node{}, selfNode, fakeConn(), tableCofig)
+		table     = New([]*node.Node{}, selfNode, fakeConn(), tableConfig)
 		firstNode = node.NewNode(&net.UDPAddr{Port: 5222})
 	)
 
