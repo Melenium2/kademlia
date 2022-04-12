@@ -37,6 +37,8 @@ func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT 
 		LiveCheckRate:    options.LiveCheckRate,
 	})
 
+	// isDiscovered := t.Discover()
+
 	return &DHT{
 		table: t,
 	}
@@ -49,3 +51,13 @@ func New(conn *net.UDPConn, knownNodesAddr []*net.UDPAddr, opts ...Option) *DHT 
 func (dht *DHT) Maintenance(ctx context.Context) {
 	dht.table.Maintenance(ctx)
 }
+
+// ForceRefresh init force refresh cycle of DHT. This function trying to find
+// closet neighbors to this node.
+//
+// If something goes wrong, function log issue and just return from function.
+func (dht *DHT) ForceRefresh() {
+	dht.table.DiscoverNeighbors()
+}
+
+// TODO add test usecase for forceRefresh
