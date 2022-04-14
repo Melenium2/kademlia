@@ -58,6 +58,8 @@ func New(bootNodes []*node.Node, self *node.Node, connection conn.UDPConn, cfg C
 		log:            logger.GetLogger(),
 	}
 
+	rand.Seed(time.Now().UnixMilli())
+
 	return t
 }
 
