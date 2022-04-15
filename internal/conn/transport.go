@@ -417,6 +417,8 @@ func (t *Transport) readFromNetwork(ctx context.Context) {
 			if err != nil {
 				t.log.Errorf("UDP read error, reason %s", err)
 
+				time.Sleep(time.Second)
+
 				continue
 			}
 
