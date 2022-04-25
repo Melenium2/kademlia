@@ -15,9 +15,7 @@ import (
 )
 
 // TODO
-//		Add config variables
 //		Change encode/decode method
-//		Add test for checking position of node in bucket storage while maintenance
 
 const (
 	HashBits          = len(node.ID{}) * 8  // Length of hash in bits. Now this is length of SHA-1, 160 bits.
