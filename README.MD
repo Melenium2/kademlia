@@ -100,9 +100,21 @@ block thread inside which it called. For canceling this process, you need to clo
 was passed to the function.
 
 ```go
-func (dht *DHT) Maintenance(ctx context.Context) error {
-	// some useful code
-}
+kademliaTable := kademlia.New(15483, addrs)
+ctx, cancel := context.WithCancel(context.Background())
+
+go func() {
+	if err := kademliaTable.Maintenance(); err != nil {
+	    log.Print(err.Error())	
+    }   
+}()
+
+// ...
+// some code here.
+// ...
+
+// we close table main function.
+cacnel()
 ```
 
 ### Force update
@@ -118,13 +130,12 @@ func (dht *DHT) ForceRefresh() {
 
 ## Status
 
-Already completed:
-
-- Ping - Pong requests, now table can check is nodes inside buckets still alive;
-- FindNode request, table can doing self-updating.
+Work in progress.
 
 TODO:
 
 - Persistent storage for already found nodes, and reloading these nodes after table rerun;
-- Store some items inside network;
+- Possibility to store items inside network;
 - DNS support.
+- Validation of incoming IP and DNS addresses.
+- New encode / decode mechanism.
