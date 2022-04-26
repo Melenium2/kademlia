@@ -93,6 +93,29 @@ addrs := []*net.UDPAddr{
 kademliaTable := kademlia.New(15483, addrs, opts...)
 ```
 
+### Table startup
+
+Table starts by call of `Maintenance` function, which apply some context. This function will
+block thread inside which it called. For canceling this process, you need to close context, which
+was passed to the function.
+
+```go
+func (dht *DHT) Maintenance(ctx context.Context) error {
+	// some useful code
+}
+```
+
+### Force update
+
+If you want to update table by you own, then you can call `ForseRefresh` function, which will
+instantly starts new refresh table cycle.
+
+```go
+func (dht *DHT) ForceRefresh() {
+    // some useful code
+}
+```
+
 ## Status
 
 Already completed:
