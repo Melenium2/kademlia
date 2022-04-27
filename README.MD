@@ -123,9 +123,15 @@ If you want to update table by you own, then you can call `ForseRefresh` functio
 instantly starts new refresh table cycle.
 
 ```go
-func (dht *DHT) ForceRefresh() {
-    // some useful code
-}
+kademliaTable := kademlia.New(15483, addrs)
+
+// ...
+// some code here.
+// ...
+
+kademliaTable.ForceRefresh() 
+
+// ...
 ```
 
 ## Status
