@@ -105,8 +105,8 @@ ctx, cancel := context.WithCancel(context.Background())
 
 go func() {
 	if err := kademliaTable.Maintenance(); err != nil {
-	    log.Print(err.Error())	
-    }   
+	    log.Print(err.Error())
+	}   
 }()
 
 // ...
