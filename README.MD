@@ -136,9 +136,9 @@ kademliaTable.ForceRefresh()
 
 ## Status
 
-Work in progress.
+Work has stopped.
 
-TODO:
+MAY BE TODO:
 
 - Persistent storage for already found nodes, and reloading these nodes after table rerun;
 - Possibility to store items inside network;
